@@ -1,7 +1,7 @@
 .ipynb_checkpoints/
-ignore/
-feedsheets/
-results/
-Technalysis_backend/
-OMRs/
-backupOMRs/
+src/feedsheets/
+src/markedOMRs/
+src/results/
+src/images/OMR_Files/
+src/backupOMRs/
+**/ignore
