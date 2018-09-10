@@ -172,24 +172,25 @@ def evaluate(resp,answers,sections,explain=False):
 # Also do something to take better nearby point
 """
 Now dvlpments-
-If multi-marked, try lower threshold, if still get multiple dark, move on, 
+_// If multi-marked, try lower threshold, if still get multiple dark, move on, 
 else choose the most dark one.*** (cases of single bubble found marked even on unattempted)
+    >> Instead choose the most dark ones always.
 
-Make a questions class - It has options & their (4 by default) coordinates
-pass array of questions to readResp: it just reads the coords and updates whether its marked or not.
+_// Make a questions class - It has options & their (4 by default) coordinates
+_// pass array of questions to readResp: it just reads the coords and updates whether its marked or not.
 
-TODO+ >> Maybe get a 'tone' of the image and decide the threshold(clipped) acc to it?
+>> Maybe get a 'tone' of the image and decide the threshold(clipped) acc to it?
+    >> Rather make this 'tone' uniform in all images -> normalizing would give these dots the darkest value
 
 Sort Bad Verifies = Raebareli, Dhirangarh, Ambarnath, Korba
-
 """
 
-"""
-TIPS FOR ADJUSTING THE THRESHOLD -
-see the markedOMR
-"""
 
-template = cv2.imread('images/FinalCircle.png',cv2.IMREAD_GRAYSCALE) #,cv2.CV_8UC1/IMREAD_COLOR/UNCHANGED 
+template = cv2.imread('images/FinalCircle_hd.png',cv2.IMREAD_GRAYSCALE) #,cv2.CV_8UC1/IMREAD_COLOR/UNCHANGED 
+w,h = template.shape
+template_scale=uniform_height_hd/(h*template_scale_down)
+w,h = int(w*template_scale),int(h*template_scale)
+template = cv2.resize(template,(w,h))
 lontemplateinv = cv2.imread('images/lon-inv-resized.png',cv2.IMREAD_GRAYSCALE)
 # lontemplateinv = imutils.rotate_bound(lontemplateinv,angle=180) 
 # lontemplateinv = imutils.resize(lontemplateinv,height=int(lontemplateinv.shape[1]*0.75))
@@ -256,6 +257,9 @@ with open(resultFile,'a') as f:
         else:
             filename = 'Nop'+str(i)
 
+        # temp patch
+        if("HE_" in filename):squad="H";
+
         origOMR = cv2.imread(filepath,cv2.IMREAD_GRAYSCALE) 
         h,w = origOMR.shape
         if(w>uniform_width*1.25 and stitched):
@@ -271,7 +275,8 @@ with open(resultFile,'a') as f:
         local_id=0
         for thresholdRead,OMR in zip(thresholdReads,OMRs):
             local_id+=1
-            OMR = imutils.resize(OMR,height=uniform_height)
+            OMR = imutils.resize(OMR,height=uniform_height_hd) 
+            print(template.shape,OMR.shape)
             OMR = cv2.GaussianBlur(OMR,(3,3),0) 
             if(showimg):
                 show('OMR',OMR,0)

@@ -235,7 +235,7 @@ def match_template_scaled(errorsArray,squadlang,filepath,filename,img1, template
         # res is the black image with white dots
         maxT = res.max()
         if(thresholdCircle < maxT):
-            # print(r,' %d )Better match %d%%' % (r0,100*maxT))
+            print(r,' %d )Better match %d%%' % (r0,100*maxT))
             r_max=r
             thresholdCircle = maxT
 ###### ^^^ Scope for improvement
@@ -346,8 +346,9 @@ def getROI(errorsArray,squadlang,filepath,filename,name,orig,templ,pause=0,lonte
     # excludepts = [[380,60]]
 ##
     """
-    TODO+
-    > Smoothening/Blurring for better template match!!
+    Done> Smoothening/Blurring for better template match!!
+    TODO:
+    debug this autorotate-
     """
 
     # if( type(lontemplinv) != type(None)):
@@ -543,8 +544,8 @@ def readResponse(squad,QTAGS,VALUES,pts,boxDim,image,name,save=None,thresholdRea
     #                 #No dict key for that point
     #                 print(pt,'This shouldnt print after debugs')
             # endif detected
-            # elif(np.random.randint(1,10)%5==0):
-            #     cv2.putText(retimg,"<"+str(int(boxval))+">",pt,cv2.FONT_HERSHEY_SIMPLEX, 1.0,(10,10,10),3)
+            elif(np.random.randint(1,10)%5==0):
+                cv2.putText(retimg,"<"+str(int(boxval))+">",pt,cv2.FONT_HERSHEY_SIMPLEX, 1.0,(10,10,10),3)
 
         # Translucent
         retimg = cv2.addWeighted(retimg,alpha,output,1-alpha,0,output)    

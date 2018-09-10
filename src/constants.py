@@ -26,8 +26,12 @@ mw,mb=1,0
 minWhiteTHR,maxBlackTHR=255,0
 
 stitched = 1;
-thresholdRead_L =  110 # if kv else 120
-thresholdRead_R =  50
+
+# For normal images
+thresholdRead_L =  145 # 110 # if kv else 120
+
+# For already normalized(contrasted) images
+thresholdRead_R =  77 # 50 
 
 thresholdCircle= 0.55 #matchTemplate returns 0 to 1
 scaleRange=(0.75,0.95)
@@ -35,6 +39,11 @@ scaleRange=(0.75,0.95)
 #Expert :p
 uniform_height = 1000 
 uniform_width  = 1231
+# original dims are (3527, 2494)
+uniform_height_hd = int(uniform_height*1.5)
+uniform_width_hd = int(uniform_width*1.5)
+template_scale_down=27
+
 boxDimX,boxDimY=(17,17) # dims of the single square
 
 directory ='images/OMR_Files/' if kv else 'images/OMR_Files/'

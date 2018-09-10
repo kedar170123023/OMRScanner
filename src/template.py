@@ -1,5 +1,14 @@
 from constants import *
 
+class Q():
+    """Container for a Question on the OMR"""
+    def __init__(self, pt,qNo,qType,Ans):
+        self.pt = pt
+        self.qNo = qNo
+        self.qType = qType
+        self.Ans = Ans
+        
+
 def merge_dicts(a,b):
     z=a.copy()
     z.update(b)
