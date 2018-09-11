@@ -17,7 +17,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk as gtk
 
-
+print('Checking Directories...')
 for dir in [saveMarkedDir]:
     if(not os.path.exists(dir)):
         print('Created : '+ dir)
@@ -307,6 +307,7 @@ def match_template_scaled(errorsArray,squadlang,filepath,filename,img1, template
         
     if(show_detected):
         show('detected',img1,0)    
+
     # if(len(centres)<3):
     #     for pt in centres:
 
@@ -416,13 +417,6 @@ def getROI(errorsArray,squadlang,filepath,filename,name,orig,templ,pause=0,lonte
 # In[8]:
 
 
-def isintq(qNo,squad):
-    if(squad=='J'):
-        return (qNo in (range(5,10)))
-    else:
-        return (qNo in (range(9,14)))
-    
-
 def addInnerKey(dic,key1,key2,val):
 #Overwrites
     try:
@@ -439,7 +433,7 @@ def checkKey(OMRresponse,key1,key2):
     except:
         return False
 
-def readResponse(squad,QTAGS,VALUES,pts,boxDim,image,name,save=None,thresholdRead=127.5,explain=True,bord=-1,
+def readResponse(squad,TEMPLATE,boxDim,image,name,save=None,thresholdRead=127.5,explain=True,bord=-1,
     white=(200,150,150),black=(25,120,20),badscan=0,multimarkedTHR=153,isint=True):
     try: 
         img = image.copy()
@@ -459,94 +453,112 @@ def readResponse(squad,QTAGS,VALUES,pts,boxDim,image,name,save=None,thresholdRea
         retimg=img.copy()
         blackTHRs=[0]
         whiteTHRs=[255]
-        # print(">>>1")
-        for pt in pts:
-            pt = tuple(map(int,pt))
-            x,y=pt 
-            #Done - Here add the scan region for (y:y+h,x:x+w)
-            xminus,xplus= x-int(w/2),x+w-int(w/2) #supplementary point.
-            xminus2,xplus2= x+int(w/2),x+w+int(w/2) #supplementary point.
-            yminus,yplus= y-int(h/2),y+h-int(h/2) #supplementary point.
-            yminus2,yplus2= y+int(h/3),y+h+int(h/3) #supplementary point.
-            # print(img.shape, xminus,xplus,y,y+h)
-            mean_color = cv2.mean(img[  y : y+h,x : x+w   ],mask)
-            mean_color2 = cv2.mean(img[ y : y+h,xminus : xplus    ],mask)
-            mean_color3 = cv2.mean(img[ y : y+h,xminus2 : xplus2  ],mask)
-            mean_color4 = cv2.mean(img[ yminus : yplus,x : x+w     ],mask)
-            mean_color5 = cv2.mean(img[ yminus2 : yplus2,x : x+w     ],mask)
-            boxval = mean_color[0]            
-            detected1=(thresholdRead > boxval)
-            threshold2 = thresholdRead + 38.25 if detected1 else thresholdRead
-            detected2=(threshold2 > mean_color2[0])
-            threshold3 = thresholdRead + 38.25 if (detected2 or detected1) else thresholdRead
-            detected3=(threshold3 > mean_color3[0])
-            threshold4 = thresholdRead + 38.25 if (detected3 or detected2 or detected1) else thresholdRead
-            detected4=(threshold4 > mean_color4[0])
-            threshold5 = thresholdRead + 38.25 if (detected4 or detected3 or detected2 or detected1) else thresholdRead
-            detected5=(threshold5 > mean_color5[0])
-            if(detected1):
-                blackTHRs.append(boxval)
-            else:
-                whiteTHRs.append(boxval)
-                
-            clr= black if detected1 else white
 
-            # retimg = cv2.rectangle(retimg,(x,yminus2),(x+w,yplus2),clrs[int(detected5)],bord)#-1 is for fill
-            # retimg = cv2.rectangle(retimg,(x,yminus),(x+w,yplus),clrs[int(detected4)],bord)#-1 is for fill
-            # retimg = cv2.rectangle(retimg,(xminus2,y),(xplus2,y+h),clrs[int(detected3)],bord)#-1 is for fill
-            # retimg = cv2.rectangle(retimg,(xminus,y),(xplus,y+h),clrs[int(detected2)],bord)#-1 is for fill
+        f, axarr = plt.subplots(len(TEMPLATE)//2,sharey=True, sharex=True)
+        f.canvas.set_window_title(name)
+        f.suptitle("Questionwise Histogram")
+        # (1500, 1846)
+        print("Cropped dim", img.shape)
+        for ctr,Que in enumerate(TEMPLATE):
+            Qboxvals=[]
+            for pt in Que.pts:
+                ptXY=(pt.x,pt.y)
+                x,y=ptXY
+                #Done - Here add the scan region for (y:y+h,x:x+w)
+                xminus,xplus= x-int(w/2),x+w-int(w/2) #supplementary point.
+                xminus2,xplus2= x+int(w/2),x+w+int(w/2) #supplementary point.
+                yminus,yplus= y-int(h/2),y+h-int(h/2) #supplementary point.
+                yminus2,yplus2= y+int(h/3),y+h+int(h/3) #supplementary point.
+                # print(img.shape, xminus,xplus,y,y+h)
+                mean_color = cv2.mean(img[  y : y+h,x : x+w   ],mask)
+                mean_color2 = cv2.mean(img[ y : y+h,xminus : xplus    ],mask)
+                mean_color3 = cv2.mean(img[ y : y+h,xminus2 : xplus2  ],mask)
+                mean_color4 = cv2.mean(img[ yminus : yplus,x : x+w     ],mask)
+                mean_color5 = cv2.mean(img[ yminus2 : yplus2,x : x+w     ],mask)
+                boxval = mean_color[0]            
+                #for hist
+                Qboxvals.append(boxval)
 
-            retimg = cv2.rectangle(retimg,(x,y),(x+w,y+h),clr,bord)#-1 is for fill
+                detected1=(thresholdRead > boxval)
+                threshold2 = thresholdRead + 38.25 if detected1 else thresholdRead
+                detected2=(threshold2 > mean_color2[0])
+                threshold3 = thresholdRead + 38.25 if (detected2 or detected1) else thresholdRead
+                detected3=(threshold3 > mean_color3[0])
+                threshold4 = thresholdRead + 38.25 if (detected3 or detected2 or detected1) else thresholdRead
+                detected4=(threshold4 > mean_color4[0])
+                threshold5 = thresholdRead + 38.25 if (detected4 or detected3 or detected2 or detected1) else thresholdRead
+                detected5=(threshold5 > mean_color5[0])
 
-            if (detected1 or detected2 or detected3 or detected4 or detected5):
-    #             try:
-                q = QTAGS[pt]
-                val = VALUES[pt]
 
-                if (q=='Medium' or ('Roll' in str(q))):
-    #         check for repeat is common at bottom
-                    key1,key2 = 'Roll',str(q)
-                    val = lang[val] if q=='Medium' else val
-
-                elif(isintq(q,squad)==True):
-                    val = int(val)
-                    if(val>9):
-                        key1,key2= 'INT'+str(q),'d2'
-        
-                        val = val-10
-                    else:
-                        key1,key2= 'INT'+str(q),'d1'
-
+                # TODO: fix this- all detecteds should be considered
+                if(detected1):
+                    blackTHRs.append(boxval)
                 else:
-    #                     MCQ wala
-                    key1,key2= 'MCQ'+str(q),'val'
-                    val = abcd[val] #
+                    whiteTHRs.append(boxval)
+                    
+                clr= black if detected1 else white
 
-    #             reject qs with duplicate marking here
-                multiple = checkKey(OMRresponse,key1,key2)
-                if(multiple):
-                    if('Roll' in str(q)):
-                        multiroll=1
-                        multimarked=1 # Only send rolls multi-marked in the directory
-                        printbuf("Multimarked In Roll")
+                # retimg = cv2.rectangle(retimg,(x,yminus2),(x+w,yplus2),clrs[int(detected5)],bord)#-1 is for fill
+                # retimg = cv2.rectangle(retimg,(x,yminus),(x+w,yplus),clrs[int(detected4)],bord)#-1 is for fill
+                # retimg = cv2.rectangle(retimg,(xminus2,y),(xplus2,y+h),clrs[int(detected3)],bord)#-1 is for fill
+                # retimg = cv2.rectangle(retimg,(xminus,y),(xplus,y+h),clrs[int(detected2)],bord)#-1 is for fill
 
-                    if(thresholdRead>multimarkedTHR): #observation
-                        #This is just for those Dark OMRs
-                        multimarked=1 # that its not marked by user, but code is detecting it.
-                    if(np.random.randint(1,10)%2==0):
-                        cv2.putText(retimg,"<"+str(int(boxval))+">",pt,cv2.FONT_HERSHEY_SIMPLEX, 1.0,(10,10,10),3)
+                retimg = cv2.rectangle(retimg,(x,y),(x+w,y+h),clr,bord)#-1 is for fill
 
-                             
-                addInnerKey(OMRresponse,key1,key2,val)
-                
-                cv2.putText(retimg,str(OMRresponse[key1][key2]),pt,cv2.FONT_HERSHEY_SIMPLEX, 1.0,(50,20,10),3)
-    #             except:
-    #                 #No dict key for that point
-    #                 print(pt,'This shouldnt print after debugs')
-            # endif detected
-            elif(np.random.randint(1,10)%5==0):
-                cv2.putText(retimg,"<"+str(int(boxval))+">",pt,cv2.FONT_HERSHEY_SIMPLEX, 1.0,(10,10,10),3)
+                if (detected1 or detected2 or detected3 or detected4 or detected5):
+        #             try:
+                    q = Que.qNo
+                    val = pt.val
 
+                    if (q=='Medium' or ('Roll' in str(q))):
+        #         check for repeat is common at bottom
+                        key1,key2 = 'Roll',str(q)
+                        val = lang[val] if q=='Medium' else val
+
+                    elif(Que.qType==QTYPE_INT):
+                        val = int(val)
+                        if(val>9):
+                            key1,key2= 'INT'+str(q),'d2'
+            
+                            val = val-10
+                        else:
+                            key1,key2= 'INT'+str(q),'d1'
+
+                    else:
+        #                     MCQ wala
+                        key1,key2= 'MCQ'+str(q),'val'
+                        val = abcd[val] #
+
+        #             reject qs with duplicate marking here
+                    multiple = checkKey(OMRresponse,key1,key2)
+                    if(multiple):
+                        if('Roll' in str(q)):
+                            multiroll=1
+                            multimarked=1 # Only send rolls multi-marked in the directory
+                            printbuf("Multimarked In Roll")
+
+                        if(thresholdRead>multimarkedTHR): #observation
+                            #This is just for those Dark OMRs
+                            multimarked=1 # that its not marked by user, but code is detecting it.
+                    addInnerKey(OMRresponse,key1,key2,val)
+                    
+                    cv2.putText(retimg,str(OMRresponse[key1][key2]),ptXY,cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE,(50,20,10),5)
+                    
+                    if(np.random.randint(0,10)==0):
+                        cv2.putText(retimg,"<"+str(int(boxval))+">",(x-2*w,y+h),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE/2,(10,10,10),3)
+                                 
+        #             except:
+        #                 #No dict key for that point
+        #                 print(pt,'This shouldnt print after debugs')
+                # endif detected
+                elif(np.random.randint(0,20)==0):
+                    cv2.putText(retimg,"<"+str(int(boxval))+">",(x-w//2,y+h//2),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE/2,(10,10,10),3)
+            
+            # Make candlesticks to show on image only?!
+            axarr[ctr//2].hist(Qboxvals, bins=range(0,256,16))
+            axarr[ctr//2].set_ylabel(Que.qNo[:-2])
+            axarr[ctr//2].legend(["D1","D2"],prop={"size":6})
+            # plt.hist(Qboxvals, bins=range(0,256,16))
         # Translucent
         retimg = cv2.addWeighted(retimg,alpha,output,1-alpha,0,output)    
         # print('Keep THR between : ',,np.mean(whiteTHRs))
@@ -555,11 +567,11 @@ def readResponse(squad,QTAGS,VALUES,pts,boxDim,image,name,save=None,thresholdRea
         minWhiteTHR = min(minWhiteTHR,np.min(whiteTHRs))
         
         ## Real helping stats:
-        cv2.putText(retimg,"avg: "+str(["avgBlack: "+str(round(np.mean(blackTHRs),2)),"avgWhite: "+str(round(np.mean(whiteTHRs),2))]),(20,50),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(50,20,10),3)
-        cv2.putText(retimg,"ext: "+str(["maxBlack: "+str(round(np.max(blackTHRs),2)),"minW(gray): "+str(round(np.min(whiteTHRs),2))]),(20,90),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(50,20,10),3)
+        cv2.putText(retimg,"avg: "+str(["avgBlack: "+str(round(np.mean(blackTHRs),2)),"avgWhite: "+str(round(np.mean(whiteTHRs),2))]),(20,50),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE,(50,20,10),4)
+        cv2.putText(retimg,"ext: "+str(["maxBlack: "+str(round(np.max(blackTHRs),2)),"minW(gray): "+str(round(np.min(whiteTHRs),2))]),(20,90),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE,(50,20,10),4)
         
-        if(retimg.shape[1] > 4 + uniform_width): #observation
-            cv2.putText(retimg,str(retimg.shape[1]),(50,80),cv2.FONT_HERSHEY_SIMPLEX, 1.0,(50,20,10),3)
+        if(retimg.shape[1] > 4 + uniform_width_hd): #observation
+            cv2.putText(retimg,str(retimg.shape[1]),(50,80),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE,(50,20,10),3)
             # badwidth = 1
 
         tosave = ( type(save) != type(None))

@@ -33,58 +33,59 @@ Gap between gray and black as HEALTH/CONFIDENCE MEASURE?
 	1.4 [X] Show b4_after comparision
 
 ### 2) For multi marks: Local variance measure to determine multimarked. > Can you plot the threshold distribution?
-	2.0  Nope, they gone- Gather 5 images on which current code detects false multi marks
+[ ]	2.0  Nope, they gone- Gather 5 images on which current code detects false multi marks
 		> Rather increase the THR to obtain multimarks
 			thresholdRead_L =  145 # 110 # if kv else 120
 			thresholdRead_R =  77 # 50 
 			Found JE Bangalore Series to fail on this.
-			Now lets Plot the hist!
-			[:28]> First make Q Class
-			[:30]> Modify template code
-			[:42]	> As we're likely to use outer rect boxes, keep support for a qNoList for multi qs in the rect at gaps[1]
-				### DESIGN CHOICE
-				C1) Current template making 
-					+Faster to make in ideal situations
-					+Superset of below
-					~More complex rects makeable in less data
-					-Stubborn
-					+Template fitting is robust - all or none
-				C2) Individiual Question Coords
-					+Simple
-					~Code repetition --> Actually is healthy here as the region is active!
-					-Slightly slower
-					-More user clicks required
-					+eliminates gaps[1]
-					~On curvy papers this would disturb only some questions
-					+Can be copy pasted in future <- seamlessness support
-					+Class support easy <- for histograms!
-				Verdict: C2 _/_/
-				"""
-				New Input:
-				start coord, type for each question
-				gapX, gapY be fixed for a Q type in the template -Nope-its also supported by core fn_/ _/ Supportable by fixed mini-templates later
-				numX, numY removed and hardcoded.
-				>> Need a Pt class to contain coord and read-value
 
-				New Output
-				Array of Q objects
+[X] 2.1 Refactor Template to suit question-wise detection
+	>> Main thing is: qNo,point,qType <- lets make a Q class _/
+		// Derive template from ans? - nope. Some may want 1,2,3,4 as option numbers
+		// Merge anskey into template? - nope. Why add this constraint? May fail at unforeseen situation?!
+		>> NOPE: Create from answer key. // rather create ans key from template
+	[X] Scale the coords onto high res image.
+	[ ] Give feedback on adjusting template to make scaleRange near 1
 
-				"""
-			> Subplot Hist for each Q <- or maybe that candlestick one
-
-	2.1 Refactor Template to suit question-wise detection
-		>> Main thing is: qNo,point,qType <- lets make a Q class _/
-			// Derive template from ans? - nope. Some may want 1,2,3,4 as option numbers
-			// Merge anskey into template? - nope. Why add this constraint? May fail at unforeseen situation?!
-			>> NOPE: Create from answer key. // rather create ans key from template
-		[X] Scale the coords onto high res image.
-		[ ] Give feedback on adjusting template to make scaleRange near 1
-
-	2.2 Refactor readResponse 
+[ ]	2.2 Refactor readResponse 
 
 
-	2.3 Implement local variance
+[ ]	2.3 Implement local variance
+	[X]	lets Plot the hist!
+		[:28]> First make Q Class
+		[:30]> Modify template code
+		[:42]	> As we're likely to use outer rect boxes, keep support for a qNoList for multi qs in the rect at gaps[1]
+			### DESIGN CHOICE
+			C1) Current template making 
+				+Faster to make in ideal situations
+				+Superset of below
+				~More complex rects makeable in less data
+				-Stubborn
+				+Template fitting is robust - all or none
+			C2) Individiual Question Coords
+				+Simple
+				~Code repetition --> Actually is healthy here as the region is active!
+				-Slightly slower
+				-More user clicks required
+				+eliminates gaps[1]
+				~On curvy papers this would disturb only some questions
+				+Can be copy pasted in future <- seamlessness support
+				+Class support easy <- for histograms!
+			Verdict: C2 _/_/
+			"""
+			New Input:
+			start coord, type for each question
+			gapX, gapY be fixed for a Q type in the template -Nope-its also supported by core fn_/ _/ Supportable by fixed mini-templates later
+			numX, numY removed and hardcoded.
+			>> Need a Pt class to contain coord and read-value
 
-	Work on full scale, write bigger font, then scale down at the end.
+			New Output
+			Array of Q objects
+
+			"""
+		[+24 2:12]> Subplot Hist for each Q <- or maybe that candlestick one
+			>> Finds that first bar of the histogram indicates correctly marked vals
+
+[X]	Work on full scale, write bigger font, then scale down at the end.
 
 

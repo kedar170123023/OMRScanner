@@ -1,4 +1,5 @@
-import constants as const
+import numpy as np
+from constants import *
 
 class Pt():
     """Container for a Point Box on the OMR"""
@@ -6,216 +7,175 @@ class Pt():
         self.x=x
         self.y=y
         self.val=val
+    # overloaded
+    def __init__(self, pt,val):
+        self.x=pt[0]
+        self.y=pt[1]
+        self.val=val
 
 class Q():
-    """Container for a Question on the OMR"""
-    def __init__(self, pts,qNo,qType,ans):
-        self.pts = pts
+    """
+    Container for a Question on the OMR
+    It can be used as a roll number column as well. (eg roll1)
+    It can also correspond to a single digit of integer type Q (eg q5d1)
+    """
+    def __init__(self,qNo,qType, pts,ans=None):
         self.qNo = qNo
         self.qType = qType
+        self.pts = pts
         self.ans = ans
-        
 
-def merge_dicts(a,b):
-    z=a.copy()
-    z.update(b)
-    return z
+def genRect(orig, qNos, gaps, vals, qType, orient):
+    """
+    Input:
+    orig - start point
+    qNo  - a qNos tuple
+    gaps - (gapX,gapY) are the gaps between rows and cols in a block
+    vals - values of each alternative for a question
 
+    Returns set of coordinates of a rectangular grid of points
+    
+        1 2 3 4
+        1 2 3 4
+        1 2 3 4
+
+        (q1, q2, q3)
+
+        00
+        11
+        22
+        33
+        44
+        (q1d1,q1d2)
+
+    """
+    Qs=[]
+    i0, i1 = (0,1) if(orient=='H') else (1,0)
+    o=orig[:] # copy list
+    for qNo in qNos:
+        pt = o[:] #copy pt
+        pts=[]
+        for v in vals:
+            pts.append(Pt(pt,v))
+            pt[i0] += gaps[i0]
+        o[i1] += gaps[i1]
+        Qs.append( Q(qNo,qType, pts))
+    return Qs
+
+def genGrid(orig, qNos, bigGaps, gaps, vals, qType, orient='V'):
+    """
+    Input:
+    orig- start point
+    qNos - an array of qNos tuples(see below) that align with dimension of the big grid (gridDims extracted from here)
+    bigGaps - (bigGapX,bigGapY) are the gaps between blocks
+    gaps - (gapX,gapY) are the gaps between rows and cols in a block
+    vals - a 1D array of values of each alternative for a question
+    orient - The way of arranging the vals (vertical or horizontal)
+
+    Returns an array of Q objects (having their points) arranged in a rectangular grid
+
+                                00    00    00    00
+   Q1   1 2 3 4    1 2 3 4      11    11    11    11
+   Q2   1 2 3 4    1 2 3 4      22    22    22    22         1234567
+   Q3   1 2 3 4    1 2 3 4      33    33    33    33         1234567
+                                44    44    44    44
+                            ,   55    55    55    55    ,    1234567                       and many more possibilities!
+   Q7   1 2 3 4    1 2 3 4      66    66    66    66         1234567
+   Q8   1 2 3 4    1 2 3 4      77    77    77    77
+   Q9   1 2 3 4    1 2 3 4      88    88    88    88
+                                99    99    99    99
+
+    MCQ type (orient='H')-
+        [
+            [(q1,q2,q3),(q4,q5,q6)]
+            [(q7,q8,q9),(q10,q11,q12)]
+        ]
+
+    INT type (orient='V')-
+        [
+            [(q1d1,q1d2),(q2d1,q2d2),(q3d1,q3d2),(q4d1,q4d2)]
+        ]
+    
+    ROLL type-
+        [
+            [(roll1,roll2,roll3,...,roll10)]
+        ]
+
+    """
+    qNos=np.array(qNos)
+    if(len(qNos.shape)!=3 or qNos.size==0): # product of shape is zero
+        print("genGrid: Invalid qNos array given", qNos)
+        return []
+
+    # ^ should also validate no overlap of rect points somehow?!
+    gridHeight, gridWidth, numDigs = qNos.shape
+    numVals = len(vals)
+
+    Qs=[]
+    i0, i1 = (0,1) if(orient=='H') else (1,0)
+    hGap, vGap = bigGaps[i1], bigGaps[i0]
+    if(orient=='H'):
+        hGap += (numVals-1)*gaps[i1]
+        vGap += (numDigs-1)*gaps[i0]
+    else:
+        hGap += (numDigs-1)*gaps[i1]
+        vGap += (numVals-1)*gaps[i0]
+    qStart=orig[:]
+    for row in qNos:
+        qStart[i1] = orig[i1]
+        for qTuple in row:
+            Qs += genRect(qStart,qTuple,gaps,vals,qType,orient)
+            qStart[i1] += hGap
+        qStart[i0] += vGap
+
+    return Qs
+
+# The utility for GUI            
 def calcGaps(PointsX,PointsY,numsX,numsY):
     gapsX = ( abs(PointsX[0]-PointsX[1])/(numsX[0]-1),abs(PointsX[2]-PointsX[3]) )
     gapsY = ( abs(PointsY[0]-PointsY[1])/(numsY[0]-1),abs(PointsY[2]-PointsY[3]) )
     return (gapsX,gapsY)
 
 
-def rectGenerator(orig,gridWidth,gridHeight,X,Y):
-    """
-    Returns set of coordinates of a rectangular grid of (blocks of) points
+def scalePts(pts,facX,facY):
+    for pt in pts:
+        pt = (pt[0]*facX,pt[1]*facY)
 
-                                00 00    00 00
-        1234    1234            11 11    11 11
-        1234    1234            22 22    22 22
-        1234    1234            33 33    33 33
-                                44 44    44 44
-                         OR     55 55    55 55
-        1234    1234            66 66    66 66
-        1234    1234            77 77    77 77
-        1234    1234            88 88    88 88
-                                99 99    99 99
-
-    """
-    pts=[]
-    posx=orig[0]
-    val = 0 
-    for block_col in range(blockW):#0,1
-        posy=orig[1]
-        for block_row in range(blockH):#0,1,2,3,..9
-            pts.append(Pt(posx,posy,val))
-            val+=1
-            posy+= (Y[1] if ((y+1) % gridHeight[0]==0) else Y[0])
-        
-        if ((x+1) % gridWidth[0]==0):
-            val=0
-        
-        posx+= (X[1] if ((x+1) % gridWidth[0]==0) else X[0])
-    return pts
-
-def maketemplateINT(qNo,s,gridWidth,gridHeight,X,gapsY):
-    """
-s-> 0 0
-    1 1
-    . .
-    . .
-    9 9
-    """
-
-    pts=[]
-    val=0
-    posx=s[0]
-    for x in range(numsX[1]):#0,1,
-        posy=s[1]
-        for y in range(numsY[1]):#0,1,2,3,..9
-            pts.append(Pt(posx,posy,val))
-            val+=1
-        
-        if ((x+1) % numsX[0]==0):
-            val=0
-            qIndex+=1
-        
-        posx+= (X[1] if ((x+1) % numsX[0]==0) else gapsX[0])
-    return Q(pts,qNo,const.INT,ans)
-
-# q12H,qtags,values  = maketemplateINT(qNos=list(range(12,13)),s=start12H,numsX=(2,2),numsY=(1,10),gapsX=gapsXintH,gapsY=gapsYintH)
-
-# In[73]:
-
-def maketemplateMCQ(qNos,start,numsX,numsY,gapsX,gapsY):
-#     generate the coordinates
-    qtags = {}
-    values = {}
-    templateMCQ=[]
-    posy=start[1]
-    qIndex = 0
-#     start from y
-    for y in range(numsY[1]):#no of rows
-        posx=start[0]
-        for x in range(numsX[1]): #0,1,2,3 - no of options
-            point = (posx,posy)
-            templateMCQ.append(point)
-            qtags[point]  = qNos[y] #here qNos is used
-            values[point] = x
-            posx+= (gapsX[1] if ((x+1) % numsX[0]==0) else gapsX[0])
-        
-        posy+= (gapsY[1] if ((y+1) % numsY[0]==0) else gapsY[0])
-        
-    return templateMCQ,qtags,values
-
-def scalePts(pts,fac=1.2):
-    spts=[]
-    for i,pt in enumerate(pts):
-        spts.append((pt[0]*fac,pt[1]*fac))
-    return tuple(spts)
-
-"""
-New Input:
-start coord, type for each question
-gapX, gapY be fixed for a Q type in the template
-
-New Output
-
-
-"""
 # Config for Manual fit - 
-scalefac = 2
-startRoll=(112,188) if kv else (113,184) 
-endRoll = (478,473)
-gapsYintJRoll=(20,31)
-gapsXintJRoll=(39,39) 
+startRoll=[150,200] if kv else [113,184] 
 
-start1to4J = (80,580)
-start10to13J = (80,805)
-start5to9J = (606,184)
-start14to16J = (605,575)
-start17to20J = (605,800)
+startIntsH=[ [903,278] ,[1655, 275] ]
+bigGapsIntH, gapsIntH = [128,51],[62,46] #51 means no use
+
+# 903+59*3+117*3-12
+startIntsJ=[ [903,275] ,[1418, 275] ] 
+bigGapsIntJ, gapsIntJ = [115,51], [59,46] #<- diff coz of single digit labels
 
 
-gapsXintJ=(20,38)
-gapsXintJ20=(20,42) if kv else (20,37)
-gapsXmcqJ=(20,12)
-gapsYmcqJ=(18,32)
-gapsXintJ,gapsXintJ20,gapsXmcqJ ,gapsYmcqJ  = scalePts((gapsXintJ,gapsXintJ20,gapsXmcqJ ,gapsYmcqJ ),scalefac)
-gapsYintJ=(10,31)
+bigGapsMcq, gapsMcq = [70,50],[70,230]
+bigGapsRoll, gapsRoll = [70,250],[70,230]
+scalePts([startRoll,bigGapsIntJ,gapsIntJ,bigGapsIntH,gapsIntH,bigGapsMcq,gapsMcq,bigGapsRoll,gapsRoll],omr_templ_scale[0],omr_templ_scale[1])
 
+def maketemplateINT(orig, qNos,bigGaps, gaps):
+    vals = range(10)
+    qType, orient= QTYPE_INT, 'V'
+    return genGrid(orig, qNos, bigGaps,gaps,vals,qType,orient)
 
+def maketemplateMCQ(orig, qNos):
+    bigGaps, gaps =  bigGapsMcq, gapsMcq
+    vals= [chr(ord('A')+i) for i in range(4)]
+    qType, orient= QTYPE_MCQ, 'H'
+    return genGrid(orig, qNos, bigGaps,gaps,vals,qType,orient)
 
-# startRoll,start1to3J,start4to7J,start11to18J,start8to10J,start19to20J,gapsXintJ,gapsXintJ20,gapsXmcqJ,gapsYmcqJ,gapsYintJ = scalePts([startRoll,start1to3J,start4to7J,start11to18J,start8to10J,start19to20J,gapsXintJ,gapsXintJ20,gapsXmcqJ,gapsYmcqJ,gapsYintJ],scalefac)
-QTAGS={'J':{},'H':{}}
-VALUES={'J':{},'H':{}}
-# JUNIORS TEMPLATE
-squad='J'
-#COMMON ROLL TEMPLATE
+def maketemplateRoll(orig):
+    bigGaps, gaps =  bigGapsRoll, gapsRoll
+    vals= ['Roll'+str(i) for i in range(9)]
+    qType, orient= QTYPE_MCQ, 'H'
+    return genGrid(orig, qNos, bigGaps,gaps,vals,qType,orient)
 
-roll_med,qtags,values = maketemplateINT(qNos=['Medium'],start=startRoll,numsX=(1,1),numsY=(1,2),gapsX=gapsXintJRoll,gapsY=gapsYintJRoll)
-QTAGS[squad], VALUES[squad]  = merge_dicts(QTAGS[squad],qtags), merge_dicts(VALUES[squad],values)
-roll_end,qtags,values = maketemplateINT(qNos=[ 'Roll'+str(i) for i in range(9) ],start=(startRoll[0]+18*scalefac,startRoll[1]),numsX=(1,9),numsY=(1,10),gapsX=gapsXintJRoll,gapsY=gapsYintJRoll)
-QTAGS[squad], VALUES[squad]  = merge_dicts(QTAGS[squad],qtags), merge_dicts(VALUES[squad],values)
-roll = roll_med+roll_end
-
-q1to4J,qtags,values = maketemplateMCQ(qNos=list(range(1,5)),start=start1to4J,numsX=(4,4),numsY=(4,4),gapsX=gapsXmcqJ,gapsY=gapsYmcqJ)
-QTAGS[squad],VALUES[squad]   = merge_dicts(QTAGS[squad],qtags) , merge_dicts(VALUES[squad],values)
-
-q5to9J,qtags,values = maketemplateINT(qNos=list(range(5,10)),start=start5to9J,numsX=(2,10),numsY=(1,10),gapsX=gapsXintJ20,gapsY=gapsYintJ)
-QTAGS[squad],VALUES[squad]   = merge_dicts(QTAGS[squad],qtags) , merge_dicts(VALUES[squad],values)
-
-q10to13J,qtags,values  = maketemplateMCQ(qNos=list(range(10,14)),start=start10to13J,numsX=(4,4),numsY=(4,4),gapsX=gapsXmcqJ,gapsY=gapsYmcqJ)
-QTAGS[squad],VALUES[squad]   = merge_dicts(QTAGS[squad],qtags) , merge_dicts(VALUES[squad],values)
-
-q14to16J,qtags,values = maketemplateMCQ(qNos=list(range(14,17)),start=start14to16J,numsX=(4,4),numsY=(3,3),gapsX=gapsXmcqJ,gapsY=gapsYmcqJ)
-QTAGS[squad],VALUES[squad]   = merge_dicts(QTAGS[squad],qtags) , merge_dicts(VALUES[squad],values)
-
-q17to20J,qtags,values = maketemplateMCQ(qNos=list(range(17,21)),start=start17to20J,numsX=(4,4),numsY=(4,4),gapsX=gapsXmcqJ,gapsY=gapsYmcqJ)
-QTAGS[squad],VALUES[squad]   = merge_dicts(QTAGS[squad],qtags) , merge_dicts(VALUES[squad],values)
-
-
-pts={}
-pts['J']=roll+q1to4J+q5to9J+q10to13J+q14to16J+q17to20J
-
-start1to4H = (80,574)
-start5to8H = (80,799)
-start9to12H = (605,183)
-start13H = (1105,183)
-start14to16H = (605,574)
-start17to20H = (605,799)
-
-
-gapsXintH=(20,38) if kv else (20,37)
-gapsXintH20=(20,43)
-gapsXmcqH=(20,9)
-gapsYmcqH=(18,33)
-gapsXintH,gapsXintH20,gapsXmcqH ,gapsYmcqH  = scalePts((gapsXintH,gapsXintH20,gapsXmcqH ,gapsYmcqH ),scalefac)
-gapsYintH=(10,31)
-gapsYintHRoll=(20,33)
-gapsXintHRoll=(39,38)
-
-
-squad='H'
-QTAGS[squad],VALUES[squad] = QTAGS['J'], VALUES['J'] 
-QTAGS['H'], VALUES['H']  = QTAGS['J'], VALUES['J'] 
-
-q1to4H,qtags,values = maketemplateMCQ(qNos=list(range(1,5)),start=start1to4H,numsX=(4,4),numsY=(4,4),gapsX=gapsXmcqH,gapsY=gapsYmcqH)
-QTAGS[squad],VALUES[squad]   = merge_dicts(QTAGS[squad],qtags) , merge_dicts(VALUES[squad],values)
-
-q5to8H,qtags,values = maketemplateMCQ(qNos=list(range(5,9)),start=start5to8H,numsX=(4,4),numsY=(4,4),gapsX=gapsXmcqH,gapsY=gapsYmcqH)
-QTAGS[squad],VALUES[squad]   = merge_dicts(QTAGS[squad],qtags) , merge_dicts(VALUES[squad],values)
-
-q9to12H,qtags,values  = maketemplateINT(qNos=list(range(9,13)),start=start9to12H,numsX=(2,8),numsY=(1,10),gapsX=gapsXintH20,gapsY=gapsYintH)
-QTAGS[squad],VALUES[squad]   = merge_dicts(QTAGS[squad],qtags) , merge_dicts(VALUES[squad],values)
-q13H,qtags,values  = maketemplateINT(qNos=list(range(13,14)),start=start13H,numsX=(2,2),numsY=(1,10),gapsX=gapsXintH20,gapsY=gapsYintH)
-QTAGS[squad],VALUES[squad]   = merge_dicts(QTAGS[squad],qtags) , merge_dicts(VALUES[squad],values)
-
-q14to16H,qtags,values = maketemplateMCQ(qNos=list(range(14,17)),start=start14to16H,numsX=(4,4),numsY=(3,3),gapsX=gapsXmcqH,gapsY=gapsYmcqH)
-QTAGS[squad],VALUES[squad]   = merge_dicts(QTAGS[squad],qtags) , merge_dicts(VALUES[squad],values)
-
-q17to20H,qtags,values = maketemplateMCQ(qNos=list(range(17,21)),start=start17to20H,numsX=(4,4),numsY=(4,4),gapsX=gapsXmcqH,gapsY=gapsYmcqH)
-QTAGS[squad],VALUES[squad]   = merge_dicts(QTAGS[squad],qtags) , merge_dicts(VALUES[squad],values)
-
-pts['H']=roll+q1to4H+q5to8H+q9to12H+q13H+q14to16H+q17to20H
+TEMPLATES={'J':[],'H':[]}
+# intQs = maketemplateINT(orig=start5to9J,qNos=[[('q1', 'q2', 'q3'), ('q4', 'q5', 'q6')], [('q7', 'q8', 'q9'), ('q10', 'q11', 'q12')]])
+TEMPLATES['J'] += maketemplateINT(startIntsJ[0],[[('q'+str(i)+'d1','q'+str(i)+'d2') for i in range(5,9)]], bigGapsIntJ,gapsIntJ)
+TEMPLATES['J'] += maketemplateINT(startIntsJ[1],[[('q'+str(i)+'d1','q'+str(i)+'d2') for i in range(8,10)]], bigGapsIntJ,gapsIntJ)
+TEMPLATES['H'] += maketemplateINT(startIntsH[0],[[('q'+str(i)+'d1','q'+str(i)+'d2') for i in range(9,13)]], bigGapsIntH,gapsIntH)
+TEMPLATES['H'] += maketemplateINT(startIntsH[1],[[('q'+str(i)+'d1','q'+str(i)+'d2') for i in range(13,14)]], bigGapsIntH,gapsIntH)

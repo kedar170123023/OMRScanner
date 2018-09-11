@@ -11,7 +11,7 @@ Evaluate Hindi Files acc to diff template & anskey - Korba, Gwalior, Gonda _/ , 
 # ('rewari', '<<<<<<<', 'OMR_Files_2018/rewari_1012/HH/Normal/Thrissur_HE_0001.tif')
 
 """
-showimg= 1
+showimg= 0
 verbose = 1 # Warning, the code may occasionally stop and showimg if verbose = 0
 explain= 1
 autorotate=1
@@ -28,7 +28,7 @@ minWhiteTHR,maxBlackTHR=255,0
 stitched = 1;
 
 # For normal images
-thresholdRead_L =  145 # 110 # if kv else 120
+thresholdRead_L =  116 # 110 # if kv else 120
 
 # For already normalized(contrasted) images
 thresholdRead_R =  77 # 50 
@@ -37,14 +37,19 @@ thresholdCircle= 0.55 #matchTemplate returns 0 to 1
 scaleRange=(0.75,0.95)
 
 #Expert :p
-uniform_height = 1000 
-uniform_width  = 1231
+display_height = 1000 
+display_width  = 1231
 # original dims are (3527, 2494)
-uniform_height_hd = int(uniform_height*1.5)
-uniform_width_hd = int(uniform_width*1.5)
-template_scale_down=27
+uniform_height_hd = int(display_height*1.5)
+uniform_width_hd = int(display_width*1.5)
+circle_templ_scaledown=27
 
-boxDimX,boxDimY=(17,17) # dims of the single square
+template_height = 1000
+template_width = 1231
+omr_templ_scale = (uniform_width_hd/template_width, uniform_height_hd/template_height )
+CV2_FONTSIZE=1.5
+
+boxDimX,boxDimY=(30,30) # dims of the single square
 
 directory ='images/OMR_Files/' if kv else 'images/OMR_Files/'
 'feedsheets/errorSheet.csv'
@@ -77,18 +82,9 @@ windowHeight = 700
 
 
 ### Qtypes constants
-INT,MCQ,ROLL = range(3)
-# In[3]:
-
-# In[9]:
-
-
-# In[10]:
-
-
+QTYPE_INT,QTYPE_MCQ,QTYPE_ROLL = range(3)
 
 Directories = [multiMarkedpath,errorpath,verifypath,badRollspath]
-print('Checking Directories...')
 
 
 Answers={

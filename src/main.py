@@ -188,7 +188,7 @@ Sort Bad Verifies = Raebareli, Dhirangarh, Ambarnath, Korba
 
 template = cv2.imread('images/FinalCircle_hd.png',cv2.IMREAD_GRAYSCALE) #,cv2.CV_8UC1/IMREAD_COLOR/UNCHANGED 
 w,h = template.shape
-template_scale=uniform_height_hd/(h*template_scale_down)
+template_scale=uniform_height_hd/(h*circle_templ_scaledown)
 w,h = int(w*template_scale),int(h*template_scale)
 template = cv2.resize(template,(w,h))
 lontemplateinv = cv2.imread('images/lon-inv-resized.png',cv2.IMREAD_GRAYSCALE)
@@ -262,7 +262,7 @@ with open(resultFile,'a') as f:
 
         origOMR = cv2.imread(filepath,cv2.IMREAD_GRAYSCALE) 
         h,w = origOMR.shape
-        if(w>uniform_width*1.25 and stitched):
+        if(w>display_width*1.25 and stitched):
             print("Assuming Stitched input.")
             w=int(w/2)
             OMRs=[origOMR[:,:w],origOMR[:,w:2*w]]
@@ -276,8 +276,9 @@ with open(resultFile,'a') as f:
         for thresholdRead,OMR in zip(thresholdReads,OMRs):
             local_id+=1
             OMR = imutils.resize(OMR,height=uniform_height_hd) 
-            print(template.shape,OMR.shape)
+            print("Template",template.shape,"Image", OMR.shape)
             OMR = cv2.GaussianBlur(OMR,(3,3),0) 
+            #>> temp
             if(showimg):
                 show('OMR',OMR,0)
             # OMR = imutils.rotate_bound(OMR,angle=90) 
@@ -300,7 +301,7 @@ with open(resultFile,'a') as f:
                 continue
             else:
                 
-                OMRcrop = cv2.resize(OMRcrop,(uniform_width,uniform_height))
+                OMRcrop = cv2.resize(OMRcrop,(uniform_width_hd,uniform_height_hd))
                 # OMRcrop = imutils.resize(OMRcrop,height=uniform_height,width=uniform_width) 
 
             
@@ -308,7 +309,7 @@ with open(resultFile,'a') as f:
             try: #TODO - resolve this try catch later 
                 counter+=1
                 
-                OMRresponse,retimg,multimarked,multiroll = readResponse(squad,QTAGS[squad],VALUES[squad],pts[squad],(boxDimX,boxDimY),OMRcrop,
+                OMRresponse,retimg,multimarked,multiroll = readResponse(squad,TEMPLATES[squad],(boxDimX,boxDimY),OMRcrop,
                                                   badscan=badscan,multimarkedTHR= thresholdRead-12.75 ,name =newfilename,save=(saveMarkedDir+squadlang if saveMarked else None),thresholdRead=thresholdRead,explain=explain,bord=-1)
                 # print("XYZ1")
                 resp=processOMR(squad,OMRresponse) #convert to ABCD, getRoll,etc
@@ -353,17 +354,20 @@ with open(resultFile,'a') as f:
                                 appendArr(err+respArray,multiMarkedArray,multiMarkedFile)
             
 
-                if(showimg):
-                    show('processed_'+newfilename+'_'+str(local_id)+'.jpg',imutils.resize(retimg,height=int(uniform_height/1.5)),1)#0 if i<end else 1)
+                #>> temp
+                if(showimg or 1):
+                    # >> temp
+                    show('processed_'+newfilename+'_'+str(local_id)+'.jpg',imutils.resize(retimg,height=int(display_height)),1)#0 if i<end else 1)
+                    plt.show()
                     
             except Exception as inst:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
                 print(exc_type, fname, exc_tb.tb_lineno)
                 print(">>>OMR",counter,newfilename+'.jpg',"BAD ERROR : Moving file to errorFiles : ",inst)        
-                err = move(results_2018error,filepath,errorpath+squadlang,'debug_'+newfilename+'.jpg')
-                if(err):
-                    appendArr(err+respArray,errorsArray,ErrorFile)
+                # err = move(results_2018error,filepath,errorpath+squadlang,'debug_'+newfilename+'.jpg')
+                # if(err):
+                #     appendArr(err+respArray,errorsArray,ErrorFile)
             
             if(respArray==[]):
                 respArray.append('') #Roll num
