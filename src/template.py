@@ -1,12 +1,19 @@
-from constants import *
+import constants as const
+
+class Pt():
+    """Container for a Point Box on the OMR"""
+    def __init__(self, x, y,val):
+        self.x=x
+        self.y=y
+        self.val=val
 
 class Q():
     """Container for a Question on the OMR"""
-    def __init__(self, pt,qNo,qType,Ans):
-        self.pt = pt
+    def __init__(self, pts,qNo,qType,ans):
+        self.pts = pts
         self.qNo = qNo
         self.qType = qType
-        self.Ans = Ans
+        self.ans = ans
         
 
 def merge_dicts(a,b):
@@ -19,34 +26,65 @@ def calcGaps(PointsX,PointsY,numsX,numsY):
     gapsY = ( abs(PointsY[0]-PointsY[1])/(numsY[0]-1),abs(PointsY[2]-PointsY[3]) )
     return (gapsX,gapsY)
 
-def maketemplateINT(qNos,start,numsX,numsY,gapsX,gapsY):
-#     generate the coordinates
-    qtags = {}
-    values = {}
-    templateINT=[]
-    posx=start[0]
-    qIndex = 0
+
+def rectGenerator(orig,gridWidth,gridHeight,X,Y):
+    """
+    Returns set of coordinates of a rectangular grid of (blocks of) points
+
+                                00 00    00 00
+        1234    1234            11 11    11 11
+        1234    1234            22 22    22 22
+        1234    1234            33 33    33 33
+                                44 44    44 44
+                         OR     55 55    55 55
+        1234    1234            66 66    66 66
+        1234    1234            77 77    77 77
+        1234    1234            88 88    88 88
+                                99 99    99 99
+
+    """
+    pts=[]
+    posx=orig[0]
     val = 0 
-    for x in range(numsX[1]):#0,1,
-        posy=start[1]
-        for y in range(numsY[1]):#0,1,2,3,..9
-            point = (posx,posy)
-            templateINT.append(point)
-            
-            qtags[point]  = qNos[qIndex]
-            values[point] = val
-            
+    for block_col in range(blockW):#0,1
+        posy=orig[1]
+        for block_row in range(blockH):#0,1,2,3,..9
+            pts.append(Pt(posx,posy,val))
             val+=1
-            
-            posy+= (gapsY[1] if ((y+1) % numsY[0]==0) else gapsY[0])
+            posy+= (Y[1] if ((y+1) % gridHeight[0]==0) else Y[0])
+        
+        if ((x+1) % gridWidth[0]==0):
+            val=0
+        
+        posx+= (X[1] if ((x+1) % gridWidth[0]==0) else X[0])
+    return pts
+
+def maketemplateINT(qNo,s,gridWidth,gridHeight,X,gapsY):
+    """
+s-> 0 0
+    1 1
+    . .
+    . .
+    9 9
+    """
+
+    pts=[]
+    val=0
+    posx=s[0]
+    for x in range(numsX[1]):#0,1,
+        posy=s[1]
+        for y in range(numsY[1]):#0,1,2,3,..9
+            pts.append(Pt(posx,posy,val))
+            val+=1
         
         if ((x+1) % numsX[0]==0):
             val=0
             qIndex+=1
         
-        posx+= (gapsX[1] if ((x+1) % numsX[0]==0) else gapsX[0])
-    return templateINT,qtags,values
-# q12H,qtags,values  = maketemplateINT(qNos=list(range(12,13)),start=start12H,numsX=(2,2),numsY=(1,10),gapsX=gapsXintH,gapsY=gapsYintH)
+        posx+= (X[1] if ((x+1) % numsX[0]==0) else gapsX[0])
+    return Q(pts,qNo,const.INT,ans)
+
+# q12H,qtags,values  = maketemplateINT(qNos=list(range(12,13)),s=start12H,numsX=(2,2),numsY=(1,10),gapsX=gapsXintH,gapsY=gapsYintH)
 
 # In[73]:
 
@@ -77,7 +115,15 @@ def scalePts(pts,fac=1.2):
         spts.append((pt[0]*fac,pt[1]*fac))
     return tuple(spts)
 
+"""
+New Input:
+start coord, type for each question
+gapX, gapY be fixed for a Q type in the template
 
+New Output
+
+
+"""
 # Config for Manual fit - 
 scalefac = 2
 startRoll=(112,188) if kv else (113,184) 

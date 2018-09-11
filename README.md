@@ -15,3 +15,16 @@ A full-fledged OMR checking software that can read and evaluate OMR sheets scann
 	1.2 [X] Show clr vals at the boxes.
 	1.3 [X] Readjust threshold values
 	1.4 [X] Show b4_after comparision
+
+
+
+## Design Choices
+
+### Function Means chart
+| Function | Means 	| | | 
+-----------------------------------------------------------------------
+| Choosing ROI | [Four Circles] | Four Dots | Sidebars |
+-----------------------------------------------------------------------
+| Adding boxes |		|			  |						|
+| in template  | Individual boxes | QGroup-wise | [Q-wise] |
+-----------------------------------------------------------------------

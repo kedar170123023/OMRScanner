@@ -51,6 +51,7 @@ Gap between gray and black as HEALTH/CONFIDENCE MEASURE?
 					+Template fitting is robust - all or none
 				C2) Individiual Question Coords
 					+Simple
+					~Code repetition --> Actually is healthy here as the region is active!
 					-Slightly slower
 					-More user clicks required
 					+eliminates gaps[1]
@@ -58,7 +59,17 @@ Gap between gray and black as HEALTH/CONFIDENCE MEASURE?
 					+Can be copy pasted in future <- seamlessness support
 					+Class support easy <- for histograms!
 				Verdict: C2 _/_/
+				"""
+				New Input:
+				start coord, type for each question
+				gapX, gapY be fixed for a Q type in the template -Nope-its also supported by core fn_/ _/ Supportable by fixed mini-templates later
+				numX, numY removed and hardcoded.
+				>> Need a Pt class to contain coord and read-value
 
+				New Output
+				Array of Q objects
+
+				"""
 			> Subplot Hist for each Q <- or maybe that candlestick one
 
 	2.1 Refactor Template to suit question-wise detection

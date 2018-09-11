@@ -76,7 +76,8 @@ windowWidth = 1200
 windowHeight = 700
 
 
-
+### Qtypes constants
+INT,MCQ,ROLL = range(3)
 # In[3]:
 
 # In[9]:
