@@ -3,11 +3,16 @@ A full-fledged OMR checking software that can read and evaluate OMR sheets scann
 
 ## TODOs
 [X] Normalize the brightness: Run on 10-15 scans of empty OMRs for threshold tuning
-	> Can you plot the histogram on single image? _/_/
+
+> Can you plot the histogram on single image? _/_/
+
 [X] For multi marks: Write algo to check threshold locally - variance values
-	> Can you plot the threshold distribution? _/_/
+
+> Can you plot the threshold distribution? _/_/
+
 [ ] For shifted templ: Find out methods to force align on rectangular strips
-	> Prob- some given scans also have negligible bg strips
+
+> Prob- some given scans also have negligible bg strips
 
 ## Curr Tasks
 ### 1) Run the outputs into omr detector.

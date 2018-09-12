@@ -1,0 +1,10 @@
+This week's updates:
+0. Created Question(Q) and Point(Pt) classes for ease
+1. Restructured template making system to generate coordinates grouped by QNo (Previously no grouping was there)
+2. Converted and fit the templates to JSON format (Side-effect of above task)
+3. Obtained questionwise box readings, plotted boxplots(and histograms) for each question.
+4. Plots for different types of OMRs are as follows:
+	[Attached images]
+	Red line indicates threshold used.
+	The edgy case can now be resolved by making use of this variance (in progress)
+5. I'm artifically generating some cases for which the code should work but doesn't work, will test above method on them to see for improvement
