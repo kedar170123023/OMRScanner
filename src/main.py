@@ -46,8 +46,8 @@ def getRoll(squad,rolldict):
     return roll
         
 def getInt(Q):
-    d1 = str(Q.get('d1','0'))
-    d2 = str(Q.get('d2','x'))
+    d1 = str(Q.get('.1','0'))
+    d2 = str(Q.get('.2','x'))
     if(d2=='x'):
         return 'X'
     else:
@@ -68,10 +68,11 @@ def processOMR(squad,omr):
             qNo='q'+(typeq.replace('INT',''))
             resp[qNo] = getInt(Q)
         else:
-            print("ERROR: Can't process item : ",q)
+            pass
+            # print("ERROR: Can't process item : ",q)
 
     if(roll=='X'):
-        print('Warning : Error in Roll number! Moving File')
+        # print('Warning : Error in Roll number! Moving File')
         return {'roll': None,'resp':resp}
     return {'roll': roll,'resp':resp}
 
@@ -234,17 +235,11 @@ badRollsArray=[sheetCols]
 verifyArray=[sheetCols]
 multiMarkedArray=[sheetCols]
 
+mws, mbs = [],[]
 # start=35
 with open(resultFile,'a') as f:
     # for i,filepath in enumerate(list(allOMRs)[start:start+5]):
     for i,filepath in enumerate(allOMRs):
-
-        if(minWhiteTHR<mw):
-            mw=minWhiteTHR
-            print('white THR',mw)
-        if(maxBlackTHR>mb):
-            mb=maxBlackTHR
-            print('black THR',mb)
         # num = str(i).zfill(4)
     #     filename=folder+prefix+num+ext
         finder = re.search(r'/.*/(.*)/(.*)/(.*)\.'+ext[1:],filepath,re.IGNORECASE)
@@ -262,7 +257,7 @@ with open(resultFile,'a') as f:
 
         origOMR = cv2.imread(filepath,cv2.IMREAD_GRAYSCALE) 
         h,w = origOMR.shape
-        if(w>display_width*1.25 and stitched):
+        if(w>uniform_width*1.25 and stitched):
             print("Assuming Stitched input.")
             w=int(w/2)
             OMRs=[origOMR[:,:w],origOMR[:,w:2*w]]
@@ -279,12 +274,12 @@ with open(resultFile,'a') as f:
             print("Template",template.shape,"Image", OMR.shape)
             OMR = cv2.GaussianBlur(OMR,(3,3),0) 
             #>> temp
-            if(showimg):
+            if(showimglvl>=3):
                 show('OMR',OMR,0)
             # OMR = imutils.rotate_bound(OMR,angle=90) 
             
             OMRcrop,badscan = getROI(errorsArray,squadlang,filepath,filename+ext,filename,OMR,template,pause=0,
-                lontemplinv= (lontemplateinv if autorotate else None),showimg=showimg,verbose=verbose, scaleRange=scaleRange,thresholdCircle=thresholdCircle)
+                lontemplinv= (lontemplateinv if autorotate else None),showimglvl=showimglvl,verbose=verbose, scaleRange=scaleRange,thresholdCircle=thresholdCircle)
 
             #uniquify 
             newfilename = filename + '_' + filepath.split('/')[-2] 
@@ -309,8 +304,10 @@ with open(resultFile,'a') as f:
             try: #TODO - resolve this try catch later 
                 counter+=1
                 
-                OMRresponse,retimg,multimarked,multiroll = readResponse(squad,TEMPLATES[squad],(boxDimX,boxDimY),OMRcrop,
+                OMRresponse,retimg,multimarked,multiroll,mw,mb = readResponse(squad,TEMPLATES[squad],(boxDimX,boxDimY),OMRcrop,
                                                   badscan=badscan,multimarkedTHR= thresholdRead-12.75 ,name =newfilename,save=(saveMarkedDir+squadlang if saveMarked else None),thresholdRead=thresholdRead,explain=explain,bord=-1)
+                mws.append(mw)                
+                mbs.append(mb)                
                 # print("XYZ1")
                 resp=processOMR(squad,OMRresponse) #convert to ABCD, getRoll,etc
                 # print("XYZ2")
@@ -325,10 +322,12 @@ with open(resultFile,'a') as f:
                 score = evaluate(resp['resp'],Answers[squad+('K' if kv else '')],Sections[squad+('K' if kv else '')],explain=explain)
 
                 if(multiroll or not (resp['roll'] is not None and len(resp['roll'])==11)):
-                    print('badRollNo, moving File: '+newfilename)
-                    err = move(badRollError,filepath,badRollspath+squadlang,newfilename+'.jpg')
-                    if(err):
-                        appendArr(err+respArray,badRollsArray,badRollsFile)
+                    #>>temp
+                    pass
+                    # print('badRollNo, moving File: '+newfilename)
+                    # err = move(badRollError,filepath,badRollspath+squadlang,newfilename+'.jpg')
+                    # if(err):
+                    #     appendArr(err+respArray,badRollsArray,badRollsFile)
                 else:
                         
                     if(badscan == 1):
@@ -355,10 +354,10 @@ with open(resultFile,'a') as f:
             
 
                 #>> temp
-                if(showimg or 1):
+                if(showimglvl>=1):
                     # >> temp
-                    show('processed_'+newfilename+'_'+str(local_id)+'.jpg',imutils.resize(retimg,height=int(display_height)),1)#0 if i<end else 1)
-                    plt.show()
+                    show('processed_'+newfilename+'_'+str(local_id)+'.jpg',imutils.resize(retimg,height=int(display_height)),1, resetpos=resetpos)#0 if i<end else 1)
+                    plt.close()
                     
             except Exception as inst:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -396,18 +395,17 @@ pd.DataFrame(multiMarkedArray,columns=sheetCols).to_csv('feedsheets/multiMarkedS
 counterChecking=counter
 takentimechecking=(int(time()-p)+1)
 print('Finished Checking %d files in %d seconds =>  %f sec/OMR:)' % (counterChecking,takentimechecking,float(takentimechecking)/float(counterChecking)))       
-print('Final Read Thresholds : white %f black %f ' % (minWhiteTHR, maxBlackTHR))
 # print('Total files moved : %d ' % (filesMoved))
 # print('Total files not moved (shud match) : %d ' % (filesNotMoved))
 
 # Use this data to train as +ve feedback
 # print(thresholdCircles)
-for x in [badThresholds,veryBadPoints,thresholdCircles]:
+for x in [badThresholds,veryBadPoints,thresholdCircles, mws, mbs]:
     if(x!=[]):
         x=pd.DataFrame(x)
         print( x.describe() )
         plt.plot(range(len(x)),x)
+        plt.show()
     # else:
         # print(x)
-plt.show()
 

@@ -102,14 +102,15 @@ def genGrid(orig, qNos, bigGaps, gaps, vals, qType, orient='V'):
         ]
 
     """
-    qNos=np.array(qNos)
-    if(len(qNos.shape)!=3 or qNos.size==0): # product of shape is zero
-        print("genGrid: Invalid qNos array given", qNos)
+    npqNos=np.array(qNos)
+    if(len(npqNos.shape)!=3 or npqNos.size==0): # product of shape is zero
+        print("genGrid: Invalid qNos array given", npqNos)
         return []
 
     # ^ should also validate no overlap of rect points somehow?!
-    gridHeight, gridWidth, numDigs = qNos.shape
+    gridHeight, gridWidth, numDigs = npqNos.shape
     numVals = len(vals)
+    # print(orig, numDigs,numVals, gridWidth,gridHeight, npqNos)
 
     Qs=[]
     i0, i1 = (0,1) if(orient=='H') else (1,0)
@@ -121,7 +122,7 @@ def genGrid(orig, qNos, bigGaps, gaps, vals, qType, orient='V'):
         hGap += (numDigs-1)*gaps[i1]
         vGap += (numVals-1)*gaps[i0]
     qStart=orig[:]
-    for row in qNos:
+    for row in npqNos:
         qStart[i1] = orig[i1]
         for qTuple in row:
             Qs += genRect(qStart,qTuple,gaps,vals,qType,orient)
@@ -142,40 +143,103 @@ def scalePts(pts,facX,facY):
         pt = (pt[0]*facX,pt[1]*facY)
 
 # Config for Manual fit - 
-startRoll=[150,200] if kv else [113,184] 
+templJSON={}
+templJSON['J']={
+    'Medium' : {
+    'qType' : QTYPE_MED,
+    'orig' : [160,276],
+    'bigGaps' : [115,51],
+    'gaps' : [59,46],
+    'qNos' : [[['Medium']]]
+    },
+    'Roll' : {
+    'qType' : QTYPE_ROLL,
+    'orig' : [218,276],
+    'bigGaps' : [115,51],
+    'gaps' : [58,46],
+    'qNos' : [[['r'+str(i) for i in range(0,9)]]]
+    },
+    'Int1' : {
+    'qType' : QTYPE_INT,
+    'orig' : [903,276],
+    'bigGaps' : [115,51],
+    'gaps' : [59,46],
+    'qNos' : [[('q'+str(i)+'.1','q'+str(i)+'.2') for i in range(5,8)]]
+    },
+    'Int2' : {
+    'qType' : QTYPE_INT,
+    'orig' : [1418,276],
+    'bigGaps' : [115,51],
+    'gaps' : [59,46],
+    'qNos' : [[('q'+str(i)+'.1','q'+str(i)+'.2') for i in range(8,10)]]
+    },
+    'Mcq1' : {
+    'qType' : QTYPE_MCQ,
+    'orig' : [118,857],
+    'bigGaps' : [115,183],
+    'gaps' : [59,53],
+    'qNos' : [[['q'+str(i) for i in range(1,5)],['q'+str(i) for i in range(10,14)]]]
+    },
+    'Mcq2' : {
+    'qType' : QTYPE_MCQ,
+    'orig' : [905,860],
+    'bigGaps' : [115,180],
+    'gaps' : [59,53],
+    'qNos' : [[['q'+str(i) for i in range(14,17)]]]
+    },
+    'Mcq3' : {
+    'qType' : QTYPE_MCQ,
+    'orig' : [905,1195],
+    'bigGaps' : [115,180],
+    'gaps' : [59,53],
+    'qNos' : [[['q'+str(i) for i in range(17,21)]]]
+    }
+}
 
-startIntsH=[ [903,278] ,[1655, 275] ]
-bigGapsIntH, gapsIntH = [128,51],[62,46] #51 means no use
+templJSON['H']={
+    'Int1' : {
+    'qType' : QTYPE_INT,
+    'orig' : [903,278],
+    'bigGaps' : [128,51],
+    'gaps' : [62,46],
+    'qNos' : [[('q'+str(i)+'.1','q'+str(i)+'.2') for i in range(9,13)]]
+    },
+    'Int2' : {
+    'qType' : QTYPE_INT,
+    'orig' : [1655, 275],
+    'bigGaps' : [128,51],
+    'gaps' : [62,46],
+    'qNos' : [[('q'+str(i)+'.1','q'+str(i)+'.2') for i in range(13,14)]]
+    },
+}
+for k in ['Medium', 'Roll', 'Mcq1','Mcq2','Mcq3']:
+    templJSON['H'][k]=templJSON['J'][k]
 
-# 903+59*3+117*3-12
-startIntsJ=[ [903,275] ,[1418, 275] ] 
-bigGapsIntJ, gapsIntJ = [115,51], [59,46] #<- diff coz of single digit labels
-
-
-bigGapsMcq, gapsMcq = [70,50],[70,230]
-bigGapsRoll, gapsRoll = [70,250],[70,230]
-scalePts([startRoll,bigGapsIntJ,gapsIntJ,bigGapsIntH,gapsIntH,bigGapsMcq,gapsMcq,bigGapsRoll,gapsRoll],omr_templ_scale[0],omr_templ_scale[1])
-
-def maketemplateINT(orig, qNos,bigGaps, gaps):
-    vals = range(10)
-    qType, orient= QTYPE_INT, 'V'
-    return genGrid(orig, qNos, bigGaps,gaps,vals,qType,orient)
-
-def maketemplateMCQ(orig, qNos):
-    bigGaps, gaps =  bigGapsMcq, gapsMcq
-    vals= [chr(ord('A')+i) for i in range(4)]
-    qType, orient= QTYPE_MCQ, 'H'
-    return genGrid(orig, qNos, bigGaps,gaps,vals,qType,orient)
-
-def maketemplateRoll(orig):
-    bigGaps, gaps =  bigGapsRoll, gapsRoll
-    vals= ['Roll'+str(i) for i in range(9)]
-    qType, orient= QTYPE_MCQ, 'H'
-    return genGrid(orig, qNos, bigGaps,gaps,vals,qType,orient)
-
+commonargs={
+QTYPE_MED:{
+'vals' : ['E','H'],
+'orient':'V'
+},
+QTYPE_ROLL:{
+'vals':range(10),
+'orient':'V'
+},
+QTYPE_INT:{
+'vals':range(10),
+'orient':'V'
+},
+QTYPE_MCQ:{
+'vals' : ['A','B','C','D'],
+'orient':'H'
+},
+}
 TEMPLATES={'J':[],'H':[]}
-# intQs = maketemplateINT(orig=start5to9J,qNos=[[('q1', 'q2', 'q3'), ('q4', 'q5', 'q6')], [('q7', 'q8', 'q9'), ('q10', 'q11', 'q12')]])
-TEMPLATES['J'] += maketemplateINT(startIntsJ[0],[[('q'+str(i)+'d1','q'+str(i)+'d2') for i in range(5,9)]], bigGapsIntJ,gapsIntJ)
-TEMPLATES['J'] += maketemplateINT(startIntsJ[1],[[('q'+str(i)+'d1','q'+str(i)+'d2') for i in range(8,10)]], bigGapsIntJ,gapsIntJ)
-TEMPLATES['H'] += maketemplateINT(startIntsH[0],[[('q'+str(i)+'d1','q'+str(i)+'d2') for i in range(9,13)]], bigGapsIntH,gapsIntH)
-TEMPLATES['H'] += maketemplateINT(startIntsH[1],[[('q'+str(i)+'d1','q'+str(i)+'d2') for i in range(13,14)]], bigGapsIntH,gapsIntH)
+def maketemplate(rect):
+    # keyword arg unpacking followed by named args
+    return genGrid(**rect,**commonargs[rect['qType']])
+
+# scale fit
+for squad,templ in templJSON.items():
+    for rect in templ.values():
+        scalePts([rect['orig'],rect['bigGaps'],rect['gaps']],omr_templ_scale[0],omr_templ_scale[1])
+        TEMPLATES[squad] += maketemplate(rect)

@@ -82,9 +82,8 @@ def show(name,img,pause=1,resetpos=None):
         windowX=resetpos[0]
         windowY=resetpos[1]
     cv2.moveWindow(name,windowX,windowY)
-    overflowX = windowX+w > windowWidth
     overflowY = windowY+h > windowHeight
-    if(overflowX):
+    if(windowX+w > windowWidth):
         windowX = 0
         if(not overflowY):windowY+=h
     else:windowX+=w
@@ -205,7 +204,7 @@ def printbuf(x):
 thresholdCircles=[]
 badThresholds=[]
 veryBadPoints=[]
-def match_template_scaled(errorsArray,squadlang,filepath,filename,img1, template,show_detected=False,pts=4,
+def match_template_scaled(errorsArray,squadlang,filepath,filename,img1, template,showimglvl=0,pts=4,
                           scaleRange=(0.5,1.5),fac=50,min_dist=None,thresholdCircle=0.6,append=1,
                           CLR=(255,155,255),iterLim=30,excludepts=None):
     global errorpath
@@ -273,9 +272,9 @@ def match_template_scaled(errorsArray,squadlang,filepath,filename,img1, template
             print("Updated Threshold: ",thresholdCircle)
             thresholdCircle=maxT
         #max(locs,key=lambda pt: res[pt[1]][pt[0]]) 
-        pt=np.argwhere(res==res.max())[0];
+        pt=np.argwhere(res==maxT)[0];
         pt = [pt[1],pt[0]]
-        thresholdCircles.append(res[pt[1]][pt[0]])
+        if(k==0):thresholdCircles.append(maxT)
         pt[0]+=origins[k][0]        
         pt[1]+=origins[k][1]
         # print(">>",pt)
@@ -305,7 +304,7 @@ def match_template_scaled(errorsArray,squadlang,filepath,filename,img1, template
     #         badscan=1
     # ### ^^^        
         
-    if(show_detected):
+    if(showimglvl>=2):
         show('detected',img1,0)    
 
     # if(len(centres)<3):
@@ -333,7 +332,7 @@ def get_fourth_pt(three_pts):
 
 
 # The Wrapper
-def getROI(errorsArray,squadlang,filepath,filename,name,orig,templ,pause=0,lontemplinv=None,showimg=False,verbose=False,pts=4,scaleRange=(0.25,1.5),fac=100,
+def getROI(errorsArray,squadlang,filepath,filename,name,orig,templ,pause=0,lontemplinv=None,showimglvl=0,verbose=False,pts=4,scaleRange=(0.25,1.5),fac=100,
            thresholdCircle=0.55,thresholdLon=0.55,iterLim=50):
     template=templ.copy()
     image=orig.copy()
@@ -363,7 +362,7 @@ def getROI(errorsArray,squadlang,filepath,filename,name,orig,templ,pause=0,lonte
     #         lontemplateinv = imutils.rotate_bound(lontemplateinv,angle= 270)
             
     #     excludepts,_ = match_template_scaled(errorsArray,squadlang,filepath,filename,image,lontemplateinv,
-    #                                     show_detected=showimg,
+    #                                     showimglvl=showimglvl,
     #                                     pts=1,
     #                                     append=0,
     #                                     scaleRange=scaleRange,fac=fac,thresholdCircle=thresholdLon,iterLim=iterLim)
@@ -388,7 +387,7 @@ def getROI(errorsArray,squadlang,filepath,filename,name,orig,templ,pause=0,lonte
     
 
     four_pts,badscan =match_template_scaled(errorsArray,squadlang,filepath,filename,image,template,
-                                show_detected=showimg,
+                                showimglvl=showimglvl,
                                 pts=pts,
                                 scaleRange=scaleRange,fac=fac,thresholdCircle=thresholdCircle,iterLim=iterLim,excludepts=excludepts)
     if(pts == 3 and len(four_pts)==3):
@@ -441,7 +440,6 @@ def readResponse(squad,TEMPLATE,boxDim,image,name,save=None,thresholdRead=127.5,
         w,h=boxDim
         mask = 255*np.ones(boxDim, np.uint8)
         lang = ['E','H']
-        abcd = ['A','B','C','D']
         OMRresponse={}
         grey,skyblue=(0,0,0),(200,150,150)
         clrs=[skyblue,grey]
@@ -454,9 +452,12 @@ def readResponse(squad,TEMPLATE,boxDim,image,name,save=None,thresholdRead=127.5,
         blackTHRs=[0]
         whiteTHRs=[255]
 
-        f, axarr = plt.subplots(len(TEMPLATE)//2,sharey=True, sharex=True)
-        f.canvas.set_window_title(name)
-        f.suptitle("Questionwise Histogram")
+        if(showimglvl>=1):
+            allQboxvals={QTYPE_INT:[],QTYPE_MCQ:[]}#QTYPE_ROLL:[]}#,QTYPE_MED:[]}
+            qNums={QTYPE_INT:[],QTYPE_MCQ:[]}#,QTYPE_ROLL:[]}#,QTYPE_MED:[]}
+            # f, axes = plt.subplots(len(TEMPLATE)//2,sharey=True, sharex=True)
+            # f.canvas.set_window_title(name)
+            # f.suptitle("Questionwise Histogram")
         # (1500, 1846)
         print("Cropped dim", img.shape)
         for ctr,Que in enumerate(TEMPLATE):
@@ -509,25 +510,14 @@ def readResponse(squad,TEMPLATE,boxDim,image,name,save=None,thresholdRead=127.5,
         #             try:
                     q = Que.qNo
                     val = pt.val
-
-                    if (q=='Medium' or ('Roll' in str(q))):
-        #         check for repeat is common at bottom
-                        key1,key2 = 'Roll',str(q)
-                        val = lang[val] if q=='Medium' else val
-
+                    if(Que.qType==QTYPE_ROLL):
+                        key1,key2 = 'Roll',q[1:] #'r1'
+                    elif(Que.qType==QTYPE_MED):
+                        key1,key2 = q,q
                     elif(Que.qType==QTYPE_INT):
-                        val = int(val)
-                        if(val>9):
-                            key1,key2= 'INT'+str(q),'d2'
-            
-                            val = val-10
-                        else:
-                            key1,key2= 'INT'+str(q),'d1'
-
+                        key1,key2= 'INT'+ q[:-2],q[-2:]
                     else:
-        #                     MCQ wala
                         key1,key2= 'MCQ'+str(q),'val'
-                        val = abcd[val] #
 
         #             reject qs with duplicate marking here
                     multiple = checkKey(OMRresponse,key1,key2)
@@ -540,6 +530,7 @@ def readResponse(squad,TEMPLATE,boxDim,image,name,save=None,thresholdRead=127.5,
                         if(thresholdRead>multimarkedTHR): #observation
                             #This is just for those Dark OMRs
                             multimarked=1 # that its not marked by user, but code is detecting it.
+                    
                     addInnerKey(OMRresponse,key1,key2,val)
                     
                     cv2.putText(retimg,str(OMRresponse[key1][key2]),ptXY,cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE,(50,20,10),5)
@@ -554,11 +545,37 @@ def readResponse(squad,TEMPLATE,boxDim,image,name,save=None,thresholdRead=127.5,
                 elif(np.random.randint(0,20)==0):
                     cv2.putText(retimg,"<"+str(int(boxval))+">",(x-w//2,y+h//2),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE/2,(10,10,10),3)
             
-            # Make candlesticks to show on image only?!
-            axarr[ctr//2].hist(Qboxvals, bins=range(0,256,16))
-            axarr[ctr//2].set_ylabel(Que.qNo[:-2])
-            axarr[ctr//2].legend(["D1","D2"],prop={"size":6})
-            # plt.hist(Qboxvals, bins=range(0,256,16))
+            if(showimglvl>=1):
+                # For int types:
+                # axes[ctr//2].hist(Qboxvals, bins=range(0,256,16))
+                # axes[ctr//2].set_ylabel(Que.qNo[:-2])
+                # axes[ctr//2].legend(["D1","D2"],prop={"size":6})
+                if(Que.qType == QTYPE_INT or Que.qType == QTYPE_MCQ):
+                    qNums[Que.qType].append(Que.qNo)
+                    allQboxvals[Que.qType].append(Qboxvals)
+        if(showimglvl>=1):
+            # plt.draw()
+            f, axes = plt.subplots(len(allQboxvals),sharey=True)
+            f.canvas.set_window_title(name)
+            ctr=0
+            for k,boxvals in allQboxvals.items():
+                axes[ctr].title.set_text(typeName[k])
+                axes[ctr].boxplot(boxvals)
+                thrline=axes[ctr].axhline(thresholdRead,color='red',ls='--')
+                thrline.set_label("THR")
+                axes[ctr].set_ylabel("Intensity")
+                axes[ctr].set_xticklabels(qNums[k])
+                # axes[ctr].legend()
+                ctr+=1
+            # imshow will do the waiting
+            plt.tight_layout(pad=0.5)
+            
+            if(showimglvl>=2):
+                plt.show() 
+            else:
+                plt.draw() 
+                plt.pause(0.01)
+
         # Translucent
         retimg = cv2.addWeighted(retimg,alpha,output,1-alpha,0,output)    
         # print('Keep THR between : ',,np.mean(whiteTHRs))
@@ -586,7 +603,7 @@ def readResponse(squad,TEMPLATE,boxDim,image,name,save=None,thresholdRead=127.5,
             else:
                 cv2.imwrite(save+name+'_marked'+'.jpg',retimg)
 
-        return OMRresponse,retimg,multimarked,multiroll
+        return OMRresponse,retimg,multimarked,multiroll,minWhiteTHR,maxBlackTHR
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
