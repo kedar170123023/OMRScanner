@@ -1,0 +1,8 @@
+Note: In 'normal_safe2' and 'edgy_safe', the question numbers would be q5..q8 instead of q10..q13 (juniors template)
+
+Obs: In xerox type images('normal_safe' & 'normal_safe2'):
+	The marked bubbles are seen as outliers for Integer types, but not for MCQ.
+	> This is because there are only 4 points in MCQ types, which is harder to qualify for 3/2 times less than lower quartile(lower end of the wide bar) which is point of 25% data less than this value..
+	> i.e. there can be atmost one point below lower quartile
+
+>> The threshold line shall lie between lower quartile line and the minimum.
