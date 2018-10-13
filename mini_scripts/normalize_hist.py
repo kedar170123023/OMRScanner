@@ -46,8 +46,9 @@ def plot_hist(img):
 	plt.show()
 
 def normalize(img):	
-	img = cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+	img = cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)#, dtype=cv2.CV_32F)
 	
+	# Somehow producing different result, has more noise 
 	# from sklearn.preprocessing import minmax_scale
 	# img = minmax_scale(img,feature_range=(0,255),copy=False)
 
@@ -77,13 +78,12 @@ for filepath in allOMRs:
 	orig=img.copy()
 	if(review):
 		show(img,wait=False)
-		# plot_hist(img);
 		img2 = clahe.apply(img)	
 		normalize(img);
-		show(img2, wait=False)
 		show(img)
-		plot_hist(img2);
 		plot_hist(img);
+		show(img2)
+		plot_hist(img2);
 	else:
 		normalize(img);
 		filename=filepath[filepath.rindex("/")+1:]
