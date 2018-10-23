@@ -11,6 +11,7 @@ from random import randint
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+plt.rcParams['figure.figsize'] = (10.0, 8.0)
 import imutils #thru the pip package.
 # from skimage.filters import threshold_adaptive
 import gi
@@ -75,7 +76,7 @@ def show(name,img,pause=1,resetpos=None):
         if(pause):
             cv2.destroyAllWindows()
         return
-    cv2.imshow(name,img)
+    cv2.imshow(name,imutils.resize(img,height=int(display_height)))
     
     w,h = img.shape[:2]
     if(resetpos):
@@ -307,7 +308,7 @@ def match_template_scaled(errorsArray,squadlang,filepath,filename,img1, template
     # ### ^^^        
         
     if(showimglvl>=2):
-        show('detected',img1,0)    
+        show('Detected circles',img1,0)    
 
     # if(len(centres)<3):
     #     for pt in centres:
@@ -469,7 +470,9 @@ def readResponse(squad,TEMPLATE,boxDim,image,name,save=None,thresholdRead=127.5,
             for pt in Que.pts:
                 QVals.append(cv2.mean(img[  pt.y:pt.y+h, pt.x:pt.x+w ],mask)[0])
         
+        # Sort the Q vals
         QVals= sorted(QVals)
+
         l=len(QVals)-1
         max1,thr1=0,255
         for i in range(1,l):
@@ -486,12 +489,16 @@ def readResponse(squad,TEMPLATE,boxDim,image,name,save=None,thresholdRead=127.5,
             if(jump > max2 and JUMP_DELTA < abs(thr1-d2)):
                 max2=jump
                 thr2=d2
+
         # Updated threshold:
         thresholdRead = min(thr1,thr2)
         if(showimglvl>=1):
             f, ax = plt.subplots() 
             ax.bar(range(len(QVals)),QVals);
             thrline=ax.axhline(thresholdRead,color='red',ls='--')
+            ax.set_title("Intensity distribution")
+            ax.set_ylabel("Intensity")
+            ax.set_xlabel("Q Boxes sorted by Intensity")
             plt.show()
 
         for ctr,Que in enumerate(TEMPLATE):
@@ -563,8 +570,8 @@ def readResponse(squad,TEMPLATE,boxDim,image,name,save=None,thresholdRead=127.5,
                     
                     cv2.putText(retimg,str(OMRresponse[key1][key2]),ptXY,cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE,(50,20,10),5)
                     
-                    if(np.random.randint(0,10)==0):
-                        cv2.putText(retimg,"["+str(int(boxval))+"]",(x-2*w,y+h),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE/2,(10,10,10),3)
+                    # if(np.random.randint(0,10)==0):
+                    #     cv2.putText(retimg,"["+str(int(boxval))+"]",(x-2*w,y+h),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE/2,(10,10,10),3)
                                  
         #             except:
         #                 #No dict key for that point
@@ -573,8 +580,8 @@ def readResponse(squad,TEMPLATE,boxDim,image,name,save=None,thresholdRead=127.5,
                 # // if(detected)
                 else:
                     whiteTHRs.append(boxval)                    
-                    if(np.random.randint(0,20)==0):
-                        cv2.putText(retimg,"["+str(int(boxval))+"]",(x-w//2,y+h//2),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE/2,(10,10,10),3)
+                    # if(np.random.randint(0,20)==0):
+                    #     cv2.putText(retimg,"["+str(int(boxval))+"]",(x-w//2,y+h//2),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE/2,(10,10,10),3)
             
             if(showimglvl>=1):
                 # For int types:
@@ -591,7 +598,7 @@ def readResponse(squad,TEMPLATE,boxDim,image,name,save=None,thresholdRead=127.5,
             f.canvas.set_window_title(name)
             ctr=0
             for k,boxvals in allQboxvals.items():
-                axes[ctr].title.set_text(typeName[k])
+                axes[ctr].title.set_text(typeName[k]+" Type")
                 axes[ctr].boxplot(boxvals)
                 thrline=axes[ctr].axhline(thresholdRead,color='red',ls='--')
                 thrline.set_label("THR")
@@ -616,8 +623,9 @@ def readResponse(squad,TEMPLATE,boxDim,image,name,save=None,thresholdRead=127.5,
         minWhiteTHR = min(minWhiteTHR,np.min(whiteTHRs))
         
         ## Real helping stats:
-        cv2.putText(retimg,"avg: "+str(["avgBlack: "+str(round(np.mean(blackTHRs),2)),"avgWhite: "+str(round(np.mean(whiteTHRs),2))]),(20,50),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE,(50,20,10),4)
-        cv2.putText(retimg,"ext: "+str(["maxBlack: "+str(round(np.max(blackTHRs),2)),"minW(gray): "+str(round(np.min(whiteTHRs),2))]),(20,90),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE,(50,20,10),4)
+
+        # cv2.putText(retimg,"avg: "+str(["avgBlack: "+str(round(np.mean(blackTHRs),2)),"avgWhite: "+str(round(np.mean(whiteTHRs),2))]),(20,50),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE,(50,20,10),4)
+        # cv2.putText(retimg,"ext: "+str(["maxBlack: "+str(round(np.max(blackTHRs),2)),"minW(gray): "+str(round(np.min(whiteTHRs),2))]),(20,90),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE,(50,20,10),4)
         
         if(retimg.shape[1] > 4 + uniform_width_hd): #observation
             cv2.putText(retimg,str(retimg.shape[1]),(50,80),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE,(50,20,10),3)

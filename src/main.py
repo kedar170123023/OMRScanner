@@ -236,6 +236,13 @@ badRollsArray=[sheetCols]
 verifyArray=[sheetCols]
 multiMarkedArray=[sheetCols]
 
+def stitch(img1,img2):
+    if(img1.shape!=img2.shape):
+        print("Can't stitch different sized images")
+        return None
+    # np.hstack((img1,img2)) does this!
+    return np.concatenate((img1,img2),axis=1)
+
 mws, mbs = [],[]
 # start=35
 with open(resultFile,'a') as f:
@@ -257,6 +264,7 @@ with open(resultFile,'a') as f:
         if("HE_" in filename):squad="H";
 
         origOMR = cv2.imread(filepath,cv2.IMREAD_GRAYSCALE) 
+
         h,w = origOMR.shape[:2]
         if(w>uniform_width*1.25 and stitched):
             print("Assuming Stitched input.")
@@ -269,16 +277,18 @@ with open(resultFile,'a') as f:
             thresholdReads=[thresholdRead_L]
 
         local_id=0
-        for thresholdRead,OMR in zip(thresholdReads,OMRs):
+        for thresholdRead,inOMR in zip(thresholdReads,OMRs):
             local_id+=1
-            OMR = imutils.resize(OMR,height=uniform_height_hd) 
-            print("Template",template.shape[:2],"Image", OMR.shape[:2])
-            OMR = cv2.GaussianBlur(OMR,(3,3),0) 
-            #>> temp
-            if(showimglvl>=3):
-                show('OMR',OMR,0)
-            # OMR = imutils.rotate_bound(OMR,angle=90) 
+            inOMR = imutils.resize(inOMR,height=uniform_height_hd) 
+            print("Template",template.shape[:2],"Image", inOMR.shape[:2])
             
+            # OMR = imutils.rotate_bound(OMR,angle=90) 
+            OMR = cv2.GaussianBlur(inOMR,(3,3),0) 
+            OMR = cv2.normalize(OMR, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)#, dtype=cv2.CV_32F)
+            
+            if(showimglvl>=3):
+                show('Preprocessing',stitch(inOMR,OMR),1)
+
             OMRcrop,badscan = getROI(errorsArray,squadlang,filepath,filename+ext,filename,OMR,template,pause=0,
                 lontemplinv= (lontemplateinv if autorotate else None),showimglvl=showimglvl,verbose=verbose, scaleRange=scaleRange,thresholdCircle=thresholdCircle)
 
@@ -357,7 +367,7 @@ with open(resultFile,'a') as f:
                 #>> temp
                 if(showimglvl>=1):
                     # >> temp
-                    show('processed_'+newfilename+'_'+str(local_id)+'.jpg',imutils.resize(retimg,height=int(display_height)),1, resetpos=resetpos)#0 if i<end else 1)
+                    show('processed_'+newfilename+'_'+str(local_id)+'.jpg',retimg,1, resetpos=resetpos)#0 if i<end else 1)
                     plt.close()
                     
             except Exception as inst:
@@ -401,12 +411,13 @@ print('Finished Checking %d files in %d seconds =>  %f sec/OMR:)' % (counterChec
 
 # Use this data to train as +ve feedback
 # print(thresholdCircles)
-for x in [badThresholds,veryBadPoints,thresholdCircles, mws, mbs]:
-    if(x!=[]):
-        x=pd.DataFrame(x)
-        print( x.describe() )
-        plt.plot(range(len(x)),x)
-        plt.show()
-    # else:
-        # print(x)
+if(showimglvl>=0):
+    for x in [badThresholds,veryBadPoints,thresholdCircles, mws, mbs]:
+        if(x!=[]):
+            x=pd.DataFrame(x)
+            print( x.describe() )
+            plt.plot(range(len(x)),x)
+            plt.show()
+        # else:
+            # print(x)
 

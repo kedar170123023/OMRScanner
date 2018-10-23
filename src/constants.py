@@ -15,7 +15,7 @@ Evaluate Hindi Files acc to diff template & anskey - Korba, Gwalior, Gonda _/ , 
 QTYPE_INT,QTYPE_ROLL,QTYPE_MCQ,QTYPE_MED= range(4)
 typeName={QTYPE_INT:"Integer",QTYPE_MCQ:"MCQ",QTYPE_MED:"MED",QTYPE_ROLL:"ROLL"}
 
-showimglvl= 1
+showimglvl= -1
 resetpos=[770,10]
 verbose = 1 # Warning, the code may occasionally stop and showimg if verbose = 0
 explain= 0
