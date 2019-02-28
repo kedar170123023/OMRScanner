@@ -1,8 +1,27 @@
 # OMR-Scanner
 A full-fledged OMR checking software that can read and evaluate OMR sheets scanned at any angle and having any color. With support for a customizable marking scheme with section-wise marking, bonus questions, etc. 
 
+## How to run
+#### Install dependencies
+
+Install opencv
+More details here: https://www.pyimagesearch.com/2018/09/19/pip-install-opencv/ 
+```
+sudo python3 -m pip install opencv-python
+```
+
+```
+sudo apt-get install python-tk
+sudo python3 -m pip install --upgrade pip
+sudo python3 -m pip install -r requirements.txt
+```
+
+## Code in action
+#### Normal scans
 <img src="./progress/in_action/light_action.gif">
 <br>
+
+#### Xerox scans
 <img src="./progress/in_action/dark_action.gif">
 
 # How it works
@@ -107,6 +126,7 @@ This work is actively in progress and many improvements are being done.
 
 #### Dev side
 (Note: info old below. to be updated after decisions)
+
 | Function         | Means             |             |                   |   			|
 |------------------|-------------------|-------------|-------------------|--------------|
 | Image Color  	   | [Grayscale]	   | RGB 	     | BGR 				 |   			|

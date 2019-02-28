@@ -14,14 +14,14 @@ def waitQ():
     cv2.destroyAllWindows()
 
 show_count=0
-def show(img,title="",wait=True):     
+def show(img,title="",pause=True):     
     global show_count
     if(title==""):
         show_count+=1
         title="Image "+str(show_count)
         
     cv2.imshow(title,img)
-    if(wait):
+    if(pause):
     	waitQ()
 
 def plot_hist(img):
@@ -78,7 +78,7 @@ for filepath in allOMRs:
 	img = cv2.resize(img,(u_width,int(h*u_width/w)))
 	orig=img.copy()
 	if(review):
-		show(img,wait=False)
+		show(img,pause=False)
 		img2 = clahe.apply(img)	
 		img = normalize(img);
 		show(img)

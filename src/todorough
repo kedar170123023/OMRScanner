@@ -1,0 +1,59 @@
+todo
+Try out contours and see the marker
+>> Centre of that contour will be close to that center!!
+>> There's also hough transform, but it aint as flexible (needs min max radius)
+>> If we ARE using a specific marker like the circle, 
+	Why not use a barcode? (Hint: test on perspectives)
+	https://www.pyimagesearch.com/2014/11/24/detecting-barcodes-images-python-opencv/
+	^We can, but now you've DECIDED to use the circle and it's a good decision, so get on with it!
+
+^>> So, findContours seems not reliable as is. Works a bit on binarizing the image, but same prob with xeroxed image would be here. And this approach will be subject to background changes.
+	
+	Rather can you find the sidelines so as to determine quadrants?
+	>> **Orientation can be determined by DFT
+		https://docs.opencv.org/2.4/doc/tutorials/core/discrete_fourier_transform/discrete_fourier_transform.html
+	>> The sidelines are not as good markers as a filled strip!
+
+>> Why not use a blob instead of circles? 
+	- Distance of sheet from camera variable. 
+	>> What if we add it to input constraint that biggest blob should be the one on OMR.
+
+** This Sobel operator can be used for aligning the template!!
+	And morphing too -
+	https://docs.opencv.org/trunk/d9/d61/tutorial_py_morphological_ops.html
+
+
+
+17 Feb
+> Two layered warping - 1st page, 2nd marker.
+Refactor more-
+> globalized redundant arguments
+> getROI and match_template_scaled. Line changes: 188 -> 152
+
+18 Feb
+> Why were you matching using eroded template?
+--> Was in the blog, it was better than using gray one.
+--> Seemed to remember the deeper concentric patterns, they were causing inaccurate results (many other white areas in image)
+--> Binarized image be better!
+
+20 Feb
+
+// Tune the page cropping parameters
+
+// Debug template matching
+
+
+Apply DFT and IFT on cropped one just to see.
+
+// Checkout this weird trick that makes marked bubbles and the template circle distinctly blobby- 
+	gray = gray - cv2.erode(gray, kernel=np.ones((5,5)),iterations=5)
+
+Excess:
+	Defeat the bossbg.jpg
+	3D viz (online) of this templateMatch output to see the peaks
+
+(Fri) Mail the progress (pic dumps)
+
+After MS:
+- Refactor readResponse
+- Mechanisms to check if circles found form a rectangle-like shape

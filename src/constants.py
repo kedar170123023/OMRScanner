@@ -15,9 +15,9 @@ Evaluate Hindi Files acc to diff template & anskey - Korba, Gwalior, Gonda _/ , 
 QTYPE_INT,QTYPE_ROLL,QTYPE_MCQ,QTYPE_MED= range(4)
 typeName={QTYPE_INT:"Integer",QTYPE_MCQ:"MCQ",QTYPE_MED:"MED",QTYPE_ROLL:"ROLL"}
 
-showimglvl= -1
+showimglvl= 3
 resetpos=[770,10]
-verbose = 1 # Warning, the code may occasionally stop and showimg if verbose = 0
+verbose = 9 # Warning, if verbose = 0, the code will pause for image reviews
 explain= 0
 autorotate=1
 saveMarked=1
@@ -37,20 +37,23 @@ thresholdRead_R =  60
 # For new ways of determining threshold
 JUMP_DELTA=20
 
-thresholdCircle= 0.55 #matchTemplate returns 0 to 1
-scaleRange=(0.75,0.95)
+# minimum threshold for template matching
+thresholdCircle = 0.4 #matchTemplate returns 0 to 1
+scaleRange=(0.35,0.95)
+match_precision = 20 # > 1
 
-#Expert :p
-display_height = 1000//1.3
-display_width  = 1231//1.3
+# Original scan dimensions: 3543 x 2478
+display_height = int(1000/2)
+display_width  = int(1231/2)
 
-uniform_height = 1000 
-uniform_width  = 1231
+uniform_height = 1000 // 2.5
+uniform_width  = 1231 // 2.5
 # original dims are (3527, 2494)
 ## Any input images should be resized to this--
 uniform_height_hd = int(uniform_height*1.5)
 uniform_width_hd = int(uniform_width*1.5)
-circle_templ_scaledown=27
+MIN_PAGE_AREA = 80000
+templ_scale_down = 5.7 
 
 template_height,template_width = 1000, 1231 # If you change this, need to change startCoords too
 omr_templ_scale = (uniform_width_hd/template_width, uniform_height_hd/template_height )

@@ -1,6 +1,25 @@
+import cv2
 import numpy as np
 from constants import *
 
+def resize_util(img, u_width, u_height=None):
+    if u_height == None:
+        h,w=img.shape[:2]
+        u_height = int(h*u_width/w)        
+    return cv2.resize(img,(u_width,u_height))
+### Image Template Part ###
+template = cv2.imread('images/FinalCircle_hd.png',cv2.IMREAD_GRAYSCALE) #,cv2.CV_8UC1/IMREAD_COLOR/UNCHANGED 
+template = resize_util(template, int(template.shape[1]/templ_scale_down))
+template = cv2.GaussianBlur(template, (5, 5), 0)
+template = cv2.normalize(template, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+# template_eroded_inv = template-cv2.erode(template,None)
+template_eroded_inv = template - cv2.erode(template, kernel=np.ones((5,5)),iterations=5)
+lontemplateinv = cv2.imread('images/lon-inv-resized.png',cv2.IMREAD_GRAYSCALE)
+# lontemplateinv = imutils.rotate_bound(lontemplateinv,angle=180) 
+# lontemplateinv = imutils.resize(lontemplateinv,height=int(lontemplateinv.shape[1]*0.75))
+# cv2.imwrite('images/lontemplate-inv-resized.jpg',lontemplateinv)
+
+### Coordinates Part ###
 class Pt():
     """Container for a Point Box on the OMR"""
     def __init__(self, x, y,val):
