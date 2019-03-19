@@ -319,10 +319,10 @@ def getBestMatch(image_eroded_sub, num_steps=10, iterLim=50):
 thresholdCircles=[]
 badThresholds=[]
 veryBadPoints=[]
-def getROI(filepath,filename,image_norm):
+def getROI(filepath,filename,image_norm, closeup=False):
     global template_eroded_sub, squadlang
 
-    image_norm = resize_util(image_norm, uniform_width_hd)
+    image_norm = resize_util(image_norm, uniform_width_hd, uniform_height_hd)
     # image_eroded_sub=image_norm-cv2.erode(image_norm,None)
     # Spread the darkness :P - Erode operation takes MIN over kernel
 
@@ -331,26 +331,28 @@ def getROI(filepath,filename,image_norm):
     TODO:
     Write autorotate-
     """
-    # TODO: Handle case of close up scan(incorrect page)-
-    sheet = findPage(image_norm)
 
-    if sheet==[]:
-        return None
-        
+    # TODO: Automate the case of close up scan(incorrect page)-
+    warped_image_eroded_sub = image_eroded_sub
+    warped_image_norm = image_norm
+    
+    if(closeup == False):
+        sheet = findPage(image_norm)
 
-    # Warp layer 1
-    warped_image_eroded_sub = four_point_transform(image_eroded_sub, sheet)        
-    if(showimglvl>=2):
-        show("page_check",image_norm, pause=False)
-    warped_image_norm = four_point_transform(image_norm, sheet)
+        if sheet==[]:
+            return None        
 
-    # Resize back to uniform width
-    show("1",warped_image_eroded_sub,0)
-    # print(warped_image_eroded_sub.shape)
-    warped_image_eroded_sub = resize_util(warped_image_eroded_sub, uniform_width_hd, uniform_height_hd)
-    # print(warped_image_eroded_sub.shape)
-    show("2",warped_image_eroded_sub)
-    warped_image_norm = resize_util(warped_image_norm, uniform_height_hd, uniform_width_hd)
+        # Warp layer 1
+        warped_image_eroded_sub = four_point_transform(image_eroded_sub, sheet)        
+        if(showimglvl>=2):
+            show("page_check",image_norm, pause=False)
+        warped_image_norm = four_point_transform(image_norm, sheet)
+
+        # Resize back to uniform width
+        # print(warped_image_eroded_sub.shape)
+        # show("1",warped_image_eroded_sub,0)
+        warped_image_eroded_sub = resize_util(warped_image_eroded_sub, uniform_width_hd, uniform_height_hd)
+        warped_image_norm = resize_util(warped_image_norm, uniform_width_hd, uniform_height_hd)
 
     # Quads on warped image
     quads={}
@@ -366,6 +368,9 @@ def getROI(filepath,filename,image_norm):
     # Draw Quadlines
     warped_image_eroded_sub[ : , midw:midw+2] = 255
     warped_image_eroded_sub[ midh:midh+2, : ] = 255
+    
+    # print(warped_image_eroded_sub.shape)
+    # show("2",warped_image_eroded_sub)
     
     best_scale = getBestMatch(warped_image_eroded_sub)    
     if(best_scale == None):
@@ -411,7 +416,7 @@ def getROI(filepath,filename,image_norm):
     warped_image_norm = four_point_transform(warped_image_norm, np.array(centres))
     
     if(showimglvl>=2):
-        show('warped_image_eroded_sub',warped_image_eroded_sub,pause=0)    
+        # show('warped_image_eroded_sub',warped_image_eroded_sub,pause=0)    
         show(filename,warped_image_norm,0)    
      
     # images/OMR_Files/4137/HE/Xerox/Durgapur_HE_04_prsp_13.22_18.78_5.jpg
@@ -466,7 +471,6 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
         # _, t = cv2.threshold(img,100,255,cv2.THRESH_BINARY)
 
         w,h = TEMPLATE.boxDims
-        mask = 255 * np.ones((w,h), np.uint8)
         lang = ['E','H']
         OMRresponse={}
         black,grey = (0,0,0),(200,150,150)
@@ -494,17 +498,31 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
         gray = square_util(img)
         # get Vertical gradients
         gray = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+        
+# templ adjust code
+        gray2=gray.copy()
+        for QBlock in TEMPLATE.QBlocks:
+            n, s,d = QBlock.key, QBlock.orig, QBlock.dims
+            shift = 0
+            THK = 3
+            cv2.rectangle(gray2,(s[0]+shift-THK,s[1]-THK),(s[0]+shift+d[0]+THK,s[1]+d[1]+THK),(100,100,100),2+2*THK)
+            cv2.rectangle(gray2,(s[0]+shift,s[1]),(s[0]+shift+d[0],s[1]+d[1]),(0,0,1),3)
+        cv2.namedWindow('Template Overlay', cv2.WINDOW_NORMAL)
+        cv2.resizeWindow('Template Overlay', gray2.shape[1]//2, gray2.shape[0]//2)
+        show("Template Overlay", gray2, 1, 1)
+        exit(0)
+
         for QBlock in TEMPLATE.QBlocks:
             orig = QBlock.orig
             qBlockDims = QBlock.dims
 
             s,d = QBlock.orig, QBlock.dims
-            w = d[0]
-
+            print("Aligning QBlock: ",QBlock.key, ", Dimensions:", QBlock.dims, "orig:", QBlock.orig)
             # TODO: save time for sum in original implementation
             maxS, shiftM = 0, 0
             # TODO: Tune factor of scan
-            for shift in range(-w//5,w//5,2):
+            ALIGN_STRIDE = 1
+            for shift in range(int(-d[0] * ALIGN_FAC),int(d[0] * ALIGN_FAC), ALIGN_STRIDE):
                 window = gray[s[1]:s[1]+d[1],s[0]+shift:s[0]+shift+d[0]]
                 # m,M = window.min(),window.max()
                 # window = ((window-m)*255)/(M-m)
@@ -513,21 +531,23 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
                 # Logs
                 print(shift, sm)
                 gray2=gray.copy()
-                cv2.rectangle(gray2,(s[0]+shift,s[1]),(s[0]+shift+d[0],s[1]+d[1]),(0,1,0),2)
-                show("Image", gray2)
+                THK = 3
+                cv2.rectangle(gray2,(s[0]+shift-THK,s[1]-THK),(s[0]+shift+d[0]+THK,s[1]+d[1]+THK),(100,100,100),2+2*THK)
+                cv2.rectangle(gray2,(s[0]+shift,s[1]),(s[0]+shift+d[0],s[1]+d[1]),(0,0,1),3)
+                show("Image", gray2, 1, 1)
 
                 if(maxS < sm):
                     maxS = sm
                     shiftM = shift
             QBlock.shift = shiftM
             # if(QBlock.shift != 0):
-            print("Note: QBlock alignment corrected", "orig:", QBlock.orig,"shift:", QBlock.shift)
+            print("Note: QBlock alignment corrected","Shift:", QBlock.shift)
 
 
-            for Que in QBlock:
+            for Que in QBlock.Qs:
                 for pt in Que.pts:
                     # shifted
-                    QVals.append(cv2.mean(img[  pt.y:pt.y+h, pt.x+shiftM:pt.x+shiftM+w ],mask)[0])
+                    QVals.append( cv2.mean( img[  pt.y:pt.y+h, pt.x+shiftM:pt.x+shiftM+w ] )[0])
         
         # Sort the Q vals
         QVals= sorted(QVals)
@@ -564,8 +584,8 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
             plt.show()
 
         ctr = 0 
-        for QBlock in AllQs:
-            for Que in QBlock:
+        for QBlock in TEMPLATE.QBlocks:
+            for Que in QBlock.Qs:
                 Qboxvals=[]
                 for pt in Que.pts:
                     # shifted
@@ -590,7 +610,7 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
                     # This is NOT usual thresholding, rather call it boxed mean-thresholding
                     detected=False
                     for rect in check_rects:
-                        boxval = cv2.mean(img[  rect[0]:rect[1] , rect[2]:rect[3] ],mask)[0]
+                        boxval = cv2.mean(img[  rect[0]:rect[1] , rect[2]:rect[3] ])[0]
                         if(thresholdRead > boxval):
                             detected=True
                         # retimg = cv2.rectangle(retimg,(rect[2],rect[0]),(rect[3],rect[1]),clrs[int(detected)],bord)                    
@@ -599,7 +619,7 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
                     if(not detected): 
                         #reset boxval to first rect 
                         rect = check_rects[0]
-                        boxval = cv2.mean(img[  rect[0]:rect[1] , rect[2]:rect[3] ],mask)[0]
+                        boxval = cv2.mean(img[  rect[0]:rect[1] , rect[2]:rect[3] ])[0]
                     
                     #for hist
                     Qboxvals.append(boxval)
