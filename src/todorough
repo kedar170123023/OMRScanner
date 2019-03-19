@@ -126,6 +126,7 @@ Minor Changes:
 
 Minor: 
 // Separated JSONs from template.py 
+// Rather, removed it-  scalePts was not acting since rect{} was introduced, also updated it with int() on pts to support fractional scaling
 
 Some dilemmas and decisions over them-
 > Template json contents : Should 'qblockDims' be written in the file or calculated from Gaps already present there
@@ -137,7 +138,7 @@ Some dilemmas and decisions over them-
 	<-- Keeping as array was simple, now more loops introduced
 	--> The paradigm was demanded on need by my subcons, gotta trust my guts this time.
 
-	
+
 # Let's Apply adaptive threshold QBlock-wise.
 # >> Nope, do column-wise or don't - 
 # Then need to separate the Qs array - doable, but extensible?

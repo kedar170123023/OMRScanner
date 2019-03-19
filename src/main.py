@@ -261,7 +261,7 @@ with open(resultFile,'a') as f:
         for thresholdRead,inOMR in zip(thresholdReads,OMRs):
             local_id+=1
             # inOMR = imutils.resize(inOMR,height=uniform_height_hd)
-            inOMR = resize(inOMR, uniform_width_hd)
+            inOMR = resize_util(inOMR, uniform_width_hd)
             print("Template",template.shape[:2],"Image", inOMR.shape[:2])
             
             # Preprocessing the image
@@ -269,10 +269,10 @@ with open(resultFile,'a') as f:
             # OMR = cv2.normalize(OMR, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)#, dtype=cv2.CV_32F)
             OMR = normalize_util(OMR)
             
-            if(showimglvl>=3):
-                show('Preprocessing',stitch(inOMR,OMR),1)
+            if(showimglvl>=6):
+                show('Preprocessing',stitch(inOMR,OMR),1,1)
 
-            OMRcrop = getROI(filepath,filename+ext,OMR)
+            OMRcrop = getROI(filepath,filename+ext,OMR, closeup=True)
             #uniquify
             newfilename = filename + '_' + filepath.split('/')[-2]
             if(OMRcrop is None):
@@ -287,7 +287,7 @@ with open(resultFile,'a') as f:
             respArray=[]
             try: #TODO - resolve this try catch later 
                 counter+=1                
-                OMRresponse,retimg,multimarked,multiroll,mw,mb = readResponse(squad,TEMPLATES[squad],OMRcrop, badscan=badscan,multimarkedTHR= thresholdRead-12.75 ,name =newfilename,save=(saveMarkedDir+squadlang if saveMarked else None),thresholdRead=thresholdRead,explain=explain,bord=-1)
+                OMRresponse,retimg,multimarked,multiroll,mw,mb = readResponse(squad,OMRcrop, badscan=badscan,multimarkedTHR= thresholdRead-12.75 ,name =newfilename,save=(saveMarkedDir+squadlang if saveMarked else None),thresholdRead=thresholdRead,explain=explain,bord=-1)
                 mws.append(mw)
                 mbs.append(mb)
                 # print("XYZ1")
