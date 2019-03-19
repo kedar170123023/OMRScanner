@@ -63,10 +63,12 @@ class Template():
     def setBoxDims(dims):
         self.boxDims = dims
 
-    def addQblock(rect):
-        self.Qblocks.append(Qblock(rect.orig, calcQBlockDims(rect), maketemplate(rect)))
+    def addQblocks(rect):
+        # keyword arg unpacking followed by named args
+        self.Qblocks += genGrid(self.boxDims, **rect,**qtype_data[rect['qType']])
+        # self.Qblocks.append(Qblock(rect.orig, calcQBlockDims(rect), maketemplate(rect)))
 
-def genRect(orig, qNos, gaps, vals, qType, orient):
+def genQBlock(qBlockDims, orig, qNos, gaps, vals, qType, orient):
     """
     Input:
     orig - start point
@@ -75,7 +77,8 @@ def genRect(orig, qNos, gaps, vals, qType, orient):
     vals - values of each alternative for a question
 
     Output:
-    Returns set of coordinates of a rectangular grid of points
+    // Returns set of coordinates of a rectangular grid of points
+    Returns a Qblock containing array of Qs and some metadata
     
         1 2 3 4
         1 2 3 4
@@ -92,21 +95,23 @@ def genRect(orig, qNos, gaps, vals, qType, orient):
 
     """
     Qs=[]
-    i0, i1 = (0,1) if(orient=='H') else (1,0)
+    H, V = (0,1) if(orient=='H') else (1,0)
     o=orig[:] # copy list
     for qNo in qNos:
         pt = o[:] #copy pt
         pts=[]
         for v in vals:
             pts.append(Pt(pt,v))
-            pt[i0] += gaps[i0]
-        o[i1] += gaps[i1]
+            pt[H] += gaps[H]
+        o[V] += gaps[V]
         Qs.append( Q(qNo,qType, pts))
-    return Qs
+    
+    return QBlock(orig, qBlockDims, Qs)
 
-def genGrid(orig, qNos, bigGaps, gaps, vals, qType, orient='V'):
+def genGrid(boxDims, orig, qNos, bigGaps, gaps, vals, qType, orient='V'):
     """
     Input:
+    boxDims - dimesions of single QBox
     orig- start point
     qNos - an array of qNos tuples(see below) that align with dimension of the big grid (gridDims extracted from here)
     bigGaps - (bigGapX,bigGapY) are the gaps between blocks
@@ -115,7 +120,8 @@ def genGrid(orig, qNos, bigGaps, gaps, vals, qType, orient='V'):
     orient - The way of arranging the vals (vertical or horizontal)
 
     Output:
-    Returns an array of Q objects (having their points) arranged in a rectangular grid
+    // Returns an array of Q objects (having their points) arranged in a rectangular grid
+    Returns grid of Qblock objects
 
                                 00    00    00    00
    Q1   1 2 3 4    1 2 3 4      11    11    11    11
@@ -145,47 +151,68 @@ def genGrid(orig, qNos, bigGaps, gaps, vals, qType, orient='V'):
         ]
 
     """
-    npqNos=np.array(qNos)
-    if(len(npqNos.shape)!=3 or npqNos.size==0): # product of shape is zero
-        print("genGrid: Invalid qNos array given", npqNos)
+    gridData=np.array(qNos)
+    if(len(gridData.shape)!=3 or gridData.size==0): # product of shape is zero
+        print("genGrid: Invalid qNos array given", gridData)
         return []
 
     # ^ should also validate no overlap of rect points somehow?!
-    gridHeight, gridWidth, numDigs = npqNos.shape
+
+    """
+    orient = 'H'
+    numVals = 4
+    [
+    [["q1", "q2", "q3", "q4"], ["q5", "q6", "q7", "q8"]],
+    [["q9", "q10", "q11", "q12"], ["q13", "q14", "q15", "q16"]]
+    ]
+
+    q1          q9
+    q2          q10
+    q3          q11 
+    q4          q12
+
+    q5          q13 
+    q6          q14
+    q7          q15
+    q8          q16
+    """
+
+    gridRows, gridCols = gridData.shape[:2]
+    numQsMax = max([max([len(qb) for qb in row]) for row in gridData])
     numVals = len(vals)
-    # print(orig, numDigs,numVals, gridWidth,gridHeight, npqNos)
 
-    Qs=[]
-    i0, i1 = (0,1) if(orient=='H') else (1,0)
-    hGap, vGap = bigGaps[i1], bigGaps[i0]
-    if(orient=='H'):
-        hGap += (numVals-1)*gaps[i1]
-        vGap += (numDigs-1)*gaps[i0]
-    else:
-        hGap += (numDigs-1)*gaps[i1]
-        vGap += (numVals-1)*gaps[i0]
-    qStart=orig[:]
-    for row in npqNos:
-        qStart[i1] = orig[i1]
+    qBlocks=[]
+    # H and V are named with respect to orient == 'H', reverse their meaning when orient = 'V'
+    H, V = (0,1) if(orient=='H') else (1,0)
+    numDims = [numQsMax, numVals]
+    print(orig, numDims, gridRows,gridCols, gridData)
+    # orient is also the direction of making QBlocks
+    # Simple is powerful-
+    origGap = [
+        bigGaps[V] + (numDims[V]-1)*gaps[V],
+        bigGaps[H] + (numDims[H]-1)*gaps[H]
+    ]
+    
+    qStart = orig.copy()
+    for row in gridData:        
+        qStart[V] = orig[V]
         for qTuple in row:
-            Qs += genRect(qStart,qTuple,gaps,vals,qType,orient)
-            qStart[i1] += hGap
-        qStart[i0] += vGap
+            qBlockDims = [
+                gaps[V] * (numDims[H]-1) + boxDims[V],
+                gaps[H] * (numDims[V]-1) + boxDims[H]
+            ]
+            # Qs += genQBlock(qStart,qTuple,gaps,vals,qType,orient)
+            qBlocks.append(genQBlock(qBlockDims, qStart,qTuple,gaps,vals,qType,orient))
+            qStart[V] += origGap[0]
+        qStart[H] += origGap[1]
 
-    return Qs
+    return qBlocks
 
 # The utility for GUI            
 def calcGaps(PointsX,PointsY,numsX,numsY):
     gapsX = ( abs(PointsX[0]-PointsX[1])/(numsX[0]-1),abs(PointsX[2]-PointsX[3]) )
     gapsY = ( abs(PointsY[0]-PointsY[1])/(numsY[0]-1),abs(PointsY[2]-PointsY[3]) )
     return (gapsX,gapsY)
-
-
-def calcQBlockDims(rect):
-    # 
-    rect.
-    return (dimsX,dimsY)
-
 
 def scalePts(pts,facX,facY):
     for pt in pts:
@@ -222,9 +249,6 @@ qtype_data = {
 }
 
 TEMPLATES={'J': Template(),'H': Template()}
-def maketemplate(rect):
-    # keyword arg unpacking followed by named args
-    return genGrid(**rect,**qtype_data[rect['qType']])
 
 
 for squad in ['J','H']:
@@ -238,7 +262,7 @@ for squad in ['J','H']:
         # Internal adjustment: scale fit
         scalePts([rect['orig'],rect['bigGaps'],rect['gaps']],omr_templ_scale[0],omr_templ_scale[1])
         # Add QBlock to array of grids
-        TEMPLATES[squad].addQblock(rect)
+        TEMPLATES[squad].addQblocks(rect)
 
     if(TEMPLATES[squad].dims != [-1, -1]):
         print("Invalid JSON! No reference dimensions given")
