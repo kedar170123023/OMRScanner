@@ -45,30 +45,34 @@ class Q():
         self.pts = pts
         self.ans = ans
 
-class Qblock():
-    def __init__(self,orig, dims, Qs):
-        self.orig=orig
-        self.dims=dims
-        self.Qs=Qs
+class QBlock():
+    def __init__(self, dims, orig, Qs):
+        # dims = (width, height)
+        self.dims = dims
+        self.orig = orig
+        self.Qs = Qs
+        # will be set when using
+        self.shift = 0
 
 class Template():
     def __init__(self):
-        self.Qblocks = []
+        self.QBlocks = []
         self.boxDims = [-1, -1]
         self.dims = [-1,-1]
 
-    def setDims(dims):
+    def setDims(self,dims):
         self.dims = dims
 
-    def setBoxDims(dims):
+    def setBoxDims(self,dims):
         self.boxDims = dims
 
-    def addQblocks(rect):
+    # Expects boxDims to be set already
+    def addQBlocks(self, rect):
         # keyword arg unpacking followed by named args
-        self.Qblocks += genGrid(self.boxDims, **rect,**qtype_data[rect['qType']])
-        # self.Qblocks.append(Qblock(rect.orig, calcQBlockDims(rect), maketemplate(rect)))
+        self.QBlocks += genGrid(self.boxDims, **rect,**qtype_data[rect['qType']])
+        # self.QBlocks.append(QBlock(rect.orig, calcQBlockDims(rect), maketemplate(rect)))
 
-def genQBlock(qBlockDims, orig, qNos, gaps, vals, qType, orient):
+def genQBlock(QBlockDims, orig, qNos, gaps, vals, qType, orient):
     """
     Input:
     orig - start point
@@ -78,7 +82,7 @@ def genQBlock(qBlockDims, orig, qNos, gaps, vals, qType, orient):
 
     Output:
     // Returns set of coordinates of a rectangular grid of points
-    Returns a Qblock containing array of Qs and some metadata
+    Returns a QBlock containing array of Qs and some metadata
     
         1 2 3 4
         1 2 3 4
@@ -96,7 +100,7 @@ def genQBlock(qBlockDims, orig, qNos, gaps, vals, qType, orient):
     """
     Qs=[]
     H, V = (0,1) if(orient=='H') else (1,0)
-    o=orig[:] # copy list
+    o = orig[:] # copy list  <-- Not for multi dimensions tho!
     for qNo in qNos:
         pt = o[:] #copy pt
         pts=[]
@@ -106,7 +110,7 @@ def genQBlock(qBlockDims, orig, qNos, gaps, vals, qType, orient):
         o[V] += gaps[V]
         Qs.append( Q(qNo,qType, pts))
     
-    return QBlock(orig, qBlockDims, Qs)
+    return QBlock(QBlockDims, orig, Qs)
 
 def genGrid(boxDims, orig, qNos, bigGaps, gaps, vals, qType, orient='V'):
     """
@@ -121,7 +125,7 @@ def genGrid(boxDims, orig, qNos, bigGaps, gaps, vals, qType, orient='V'):
 
     Output:
     // Returns an array of Q objects (having their points) arranged in a rectangular grid
-    Returns grid of Qblock objects
+    Returns grid of QBlock objects
 
                                 00    00    00    00
    Q1   1 2 3 4    1 2 3 4      11    11    11    11
@@ -181,7 +185,7 @@ def genGrid(boxDims, orig, qNos, bigGaps, gaps, vals, qType, orient='V'):
     numQsMax = max([max([len(qb) for qb in row]) for row in gridData])
     numVals = len(vals)
 
-    qBlocks=[]
+    QBlocks=[]
     # H and V are named with respect to orient == 'H', reverse their meaning when orient = 'V'
     H, V = (0,1) if(orient=='H') else (1,0)
     numDims = [numQsMax, numVals]
@@ -193,20 +197,22 @@ def genGrid(boxDims, orig, qNos, bigGaps, gaps, vals, qType, orient='V'):
         bigGaps[H] + (numDims[H]-1)*gaps[H]
     ]
     
-    qStart = orig.copy()
+    qStart = orig[:] #copy list
     for row in gridData:        
         qStart[V] = orig[V]
         for qTuple in row:
-            qBlockDims = [
-                gaps[V] * (numDims[H]-1) + boxDims[V],
-                gaps[H] * (numDims[V]-1) + boxDims[H]
+            QBlockDims = [
+                # width x height in pixels
+                gaps[H] * (numDims[V]-1) + boxDims[H],
+                gaps[V] * (numDims[H]-1) + boxDims[V]
             ]
             # Qs += genQBlock(qStart,qTuple,gaps,vals,qType,orient)
-            qBlocks.append(genQBlock(qBlockDims, qStart,qTuple,gaps,vals,qType,orient))
+            QBlocks.append(genQBlock(QBlockDims, qStart,qTuple,gaps,vals,qType,orient))
+            # TODO : Verify [0]
             qStart[V] += origGap[0]
         qStart[H] += origGap[1]
 
-    return qBlocks
+    return QBlocks
 
 # The utility for GUI            
 def calcGaps(PointsX,PointsY,numsX,numsY):
@@ -223,11 +229,6 @@ def read_template(filename):
         return json.load(f)
 
 
-# Config for Manual fit - 
-templJSON={
-'J' : read_template("J_template.json"),
-'H' : read_template("H_template.json")
-}
 
 qtype_data = {
 'QTYPE_MED':{
@@ -248,21 +249,25 @@ qtype_data = {
 },
 }
 
+templJSON={
+'J' : read_template("J_template.json"),
+'H' : read_template("H_template.json")
+}
 TEMPLATES={'J': Template(),'H': Template()}
 
 
 for squad in ['J','H']:
+    TEMPLATES[squad].setDims(templJSON[squad]["Dimensions"])
+    TEMPLATES[squad].setBoxDims(templJSON[squad]["boxDimensions"])
     for k, rect in templJSON[squad].items():
-        if(k=="Dimensions"):
-            TEMPLATES[squad].setDims(rect)
-            continue
-        if(k=="boxDimensions"):
-            TEMPLATES[squad].setBoxDims(rect)
+        if(k=="Dimensions" or k=="boxDimensions"):
             continue
         # Internal adjustment: scale fit
         scalePts([rect['orig'],rect['bigGaps'],rect['gaps']],omr_templ_scale[0],omr_templ_scale[1])
         # Add QBlock to array of grids
-        TEMPLATES[squad].addQblocks(rect)
+        TEMPLATES[squad].addQBlocks(rect)
 
-    if(TEMPLATES[squad].dims != [-1, -1]):
-        print("Invalid JSON! No reference dimensions given")
+    if(TEMPLATES[squad].dims == [-1, -1]):
+        print(squad, "Invalid JSON! No reference dimensions given")
+        exit(0)
+

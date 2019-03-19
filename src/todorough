@@ -136,3 +136,9 @@ Some dilemmas and decisions over them-
 > Making QBlock class :
 	<-- Keeping as array was simple, now more loops introduced
 	--> The paradigm was demanded on need by my subcons, gotta trust my guts this time.
+
+	
+# Let's Apply adaptive threshold QBlock-wise.
+# >> Nope, do column-wise or don't - 
+# Then need to separate the Qs array - doable, but extensible?
+# >> No need! You just need QVals, can get it cumulating via QBlocks too, get it as you find shifts

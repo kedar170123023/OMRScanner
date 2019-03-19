@@ -46,8 +46,8 @@ match_precision = 20 # > 1
 display_height = int(1000/2)
 display_width  = int(1231/2)
 
-uniform_height = 1000 // 2.5
-uniform_width  = 1231 // 2.5
+uniform_width = 1000 // 1.5
+uniform_height = 1231 // 1.5
 # original dims are (3527, 2494)
 ## Any input images should be resized to this--
 uniform_height_hd = int(uniform_height*1.5)

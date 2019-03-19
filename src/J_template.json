@@ -1,7 +1,7 @@
 {
   "Dimensions": [
-    1846, //h
-    1500  //w
+    1846,
+    1500
   ],
   "boxDimensions": [
     30,
@@ -13,7 +13,6 @@
       160,
       276
     ],
-    //  redundant for single blocks
     "bigGaps": [
       115,
       51
@@ -93,7 +92,6 @@
   },
   "Int2": {
     "qType": "QTYPE_INT",
-    
     "orig": [
       1418,
       276
@@ -127,7 +125,7 @@
     ],
     "bigGaps": [
       115,
-      183 // vert block gaps
+      183
     ],
     "gaps": [
       59,
