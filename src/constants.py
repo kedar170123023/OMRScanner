@@ -12,10 +12,10 @@ Evaluate Hindi Files acc to diff template & anskey - Korba, Gwalior, Gonda _/ , 
 
 """
 ### Qtypes constants
-QTYPE_INT,QTYPE_ROLL,QTYPE_MCQ,QTYPE_MED= range(4)
-typeName={QTYPE_INT:"Integer",QTYPE_MCQ:"MCQ",QTYPE_MED:"MED",QTYPE_ROLL:"ROLL"}
+# "QTYPE_INT","QTYPE_ROLL","QTYPE_MCQ","QTYPE_MED"= range(4)
+typeName={"QTYPE_INT":"Integer","QTYPE_MCQ":"MCQ","QTYPE_MED":"MED","QTYPE_ROLL":"ROLL"}
 
-showimglvl= 3
+showimglvl= 5
 resetpos=[770,10]
 verbose = 9 # Warning, if verbose = 0, the code will pause for image reviews
 explain= 0
@@ -58,8 +58,6 @@ templ_scale_down = 5.7
 template_height,template_width = 1000, 1231 # If you change this, need to change startCoords too
 omr_templ_scale = (uniform_width_hd/template_width, uniform_height_hd/template_height )
 CV2_FONTSIZE=1.5
-
-boxDimX,boxDimY=(30,30) # dims of the single square
 
 directory ='images/OMR_Files/' if kv else 'images/OMR_Files/'
 'feedsheets/errorSheet.csv'

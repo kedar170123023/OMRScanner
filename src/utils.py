@@ -78,6 +78,12 @@ def waitQ():
 def normalize_util(img, alpha=0, beta=255):
     return cv2.normalize(img, alpha, beta, norm_type=cv2.NORM_MINMAX)#, dtype=cv2.CV_32F)
 
+def square_util(gray):
+    gray = np.uint16(gray)
+    gray **= 2
+    gray = gray / 255
+    return gray
+
 def resize_util(img, u_width, u_height=None):
     if u_height == None:
         h,w=img.shape[:2]
@@ -275,10 +281,13 @@ def findPage(image_norm):
         # box = perspective.order_points(box)
     print("Found largest quadrilateral: ", sheet)
 
+    if sheet==[]:
+        print("Error: Paper boundary not found!")
+        show('Morphed Edges',closed,pause=1)  
     return sheet
 
-def getBestMatch(image_eroded_inv, num_steps=10, iterLim=50):
-    global template_eroded_inv
+def getBestMatch(image_eroded_sub, num_steps=10, iterLim=50):
+    global template_eroded_sub
 
     # match_precision is how minutely to scan ?!
     x=[int(scaleRange[0]*match_precision),int(scaleRange[1]*match_precision)]
@@ -286,15 +295,15 @@ def getBestMatch(image_eroded_inv, num_steps=10, iterLim=50):
         print("Too many iterations : %d, reduce scaleRange" % ((x[1]-x[0])*num_steps/match_precision) )
         return None
 
-    h, w = template_eroded_inv.shape[:2]
+    h, w = template_eroded_sub.shape[:2]
     res, best_scale=None, None
     t_max = 0
     for r0 in range(x[1],x[0], -1*match_precision//num_steps): #reverse order
         s=float(r0)/match_precision
         if(s==0.0):
             continue
-        templ_scaled = imutils.resize(template_eroded_inv, height = int(h*s))
-        res = cv2.matchTemplate(image_eroded_inv,templ_scaled,cv2.TM_CCOEFF_NORMED)
+        templ_scaled = imutils.resize(template_eroded_sub, height = int(h*s))
+        res = cv2.matchTemplate(image_eroded_sub,templ_scaled,cv2.TM_CCOEFF_NORMED)
         
         # res is the black image with white dots
         maxT = res.max()
@@ -311,11 +320,13 @@ thresholdCircles=[]
 badThresholds=[]
 veryBadPoints=[]
 def getROI(filepath,filename,image_norm):
-    global template_eroded_inv, squadlang
+    global template_eroded_sub, squadlang
 
     image_norm = resize_util(image_norm, uniform_width_hd)
-    # image_eroded_inv=image_norm-cv2.erode(image_norm,None)
-    image_eroded_inv = image_norm - cv2.erode(image_norm, kernel=np.ones((5,5)),iterations=5)
+    # image_eroded_sub=image_norm-cv2.erode(image_norm,None)
+    # Spread the darkness :P - Erode operation takes MIN over kernel
+
+    image_eroded_sub = image_norm - cv2.erode(image_norm, kernel=np.ones((5,5)),iterations=5)
     """
     TODO:
     Write autorotate-
@@ -324,48 +335,48 @@ def getROI(filepath,filename,image_norm):
     sheet = findPage(image_norm)
 
     if sheet==[]:
-        print("Error: Paper boundary not found!")
-        show('Morphed Edges',closed,pause=1)  
         return None
         
 
     # Warp layer 1
-    warped_image_eroded_inv = four_point_transform(image_eroded_inv, sheet)        
+    warped_image_eroded_sub = four_point_transform(image_eroded_sub, sheet)        
     if(showimglvl>=2):
         show("page_check",image_norm, pause=False)
     warped_image_norm = four_point_transform(image_norm, sheet)
 
-    # Resize back to uniform height
-    warped_image_eroded_inv = resize_util(warped_image_eroded_inv, uniform_width_hd)
-    warped_image_norm = resize_util(warped_image_norm, uniform_width_hd)
+    # Resize back to uniform width
+    show("1",warped_image_eroded_sub,0)
+    warped_image_eroded_sub = resize_util(warped_image_eroded_sub, uniform_width_hd, uniform_height_hd)
+    show("2",warped_image_eroded_sub)
+    warped_image_norm = resize_util(warped_image_norm, uniform_height_hd, uniform_width_hd)
 
     # Quads on warped image
     quads={}
-    h1, w1=warped_image_eroded_inv.shape[:2]
+    h1, w1=warped_image_eroded_sub.shape[:2]
     # midh,midw=h1//2, w1//3
     midh,midw = h1//3, w1//2
     origins=[[0,0],[midw,0],[0,midh],[midw,midh]]
-    quads[0]=warped_image_eroded_inv[0:midh,0:midw];
-    quads[1]=warped_image_eroded_inv[0:midh,midw:w1];
-    quads[2]=warped_image_eroded_inv[midh:h1,0:midw];
-    quads[3]=warped_image_eroded_inv[midh:h1,midw:w1];
+    quads[0]=warped_image_eroded_sub[0:midh,0:midw];
+    quads[1]=warped_image_eroded_sub[0:midh,midw:w1];
+    quads[2]=warped_image_eroded_sub[midh:h1,0:midw];
+    quads[3]=warped_image_eroded_sub[midh:h1,midw:w1];
         
     # Draw Quadlines
-    warped_image_eroded_inv[ : , midw:midw+2] = 255
-    warped_image_eroded_inv[ midh:midh+2, : ] = 255
+    warped_image_eroded_sub[ : , midw:midw+2] = 255
+    warped_image_eroded_sub[ midh:midh+2, : ] = 255
     
-    best_scale = getBestMatch(warped_image_eroded_inv)    
+    best_scale = getBestMatch(warped_image_eroded_sub)    
     if(best_scale == None):
         # TODO: Plot and see performance of scaleRange
         print("No matchings for given scaleRange:",scaleRange)
-        show('Quads',warped_image_eroded_inv)  
+        show('Quads',warped_image_eroded_sub)  
         err = move(results_2018error,filepath,errorpath+squadlang,filename)
         if(err):
             appendErr(err)
 
         return None
     
-    templ = imutils.resize(template_eroded_inv, height = int(template_eroded_inv.shape[0]*best_scale))
+    templ = imutils.resize(template_eroded_sub, height = int(template_eroded_sub.shape[0]*best_scale))
     h,w=templ.shape[:2] 
     centres = []
     sumT, maxT = 0, 0
@@ -376,7 +387,9 @@ def getROI(filepath,filename,image_norm):
             # Warning - code will stop in the middle. Keep Threshold low to avoid.
             print(filename,"\nError: No circle found in Quad",k+1, "maxT", maxT,"best_scale",best_scale)
             if(verbose):
-                show('no_pts_'+filename,warped_image_eroded_inv,pause=1) 
+                show('no_pts_'+filename,warped_image_eroded_sub,pause=0) 
+                show('res_Q'+str(k),res,pause=1) 
+
             return None
 
         pt=np.argwhere(res==maxT)[0];
@@ -385,7 +398,7 @@ def getROI(filepath,filename,image_norm):
         pt[1]+=origins[k][1]
         # print(">>",pt)
         warped_image_norm = cv2.rectangle(warped_image_norm,tuple(pt),(pt[0]+w,pt[1]+h),(150,150,150),2)            
-        warped_image_eroded_inv = cv2.rectangle(warped_image_eroded_inv,tuple(pt),(pt[0]+w,pt[1]+h),(150,150,150),2)            
+        warped_image_eroded_sub = cv2.rectangle(warped_image_eroded_sub,tuple(pt),(pt[0]+w,pt[1]+h),(150,150,150),2)            
         centres.append([pt[0]+w/2,pt[1]+h/2])
         sumT += maxT
 
@@ -396,7 +409,7 @@ def getROI(filepath,filename,image_norm):
     warped_image_norm = four_point_transform(warped_image_norm, np.array(centres))
     
     if(showimglvl>=2):
-        show('warped_image_eroded_inv',warped_image_eroded_inv,pause=0)    
+        show('warped_image_eroded_sub',warped_image_eroded_sub,pause=0)    
         show(filename,warped_image_norm,0)    
      
     # images/OMR_Files/4137/HE/Xerox/Durgapur_HE_04_prsp_13.22_18.78_5.jpg
@@ -407,7 +420,11 @@ def getROI(filepath,filename,image_norm):
         squad,lang = squadlang[0],squadlang[1]
 
     newfilename = filename + '_' + filepath.split('/')[-2]
-    OMRresponse,retimg,multimarked,multiroll,mw,mb = readResponse(squad,TEMPLATES[squad],warped_image_norm, name = newfilename)
+    
+    # iterations : Tuned to 2.
+    # warped_image_eroded_sub = warped_image_norm - cv2.erode(warped_image_norm, kernel=np.ones((5,5)),iterations=2)
+
+    OMRresponse,retimg,multimarked,multiroll,mw,mb = readResponse(squad,warped_image_norm, name = newfilename)
     show("retimg",retimg,1,1)
     
     return warped_image_norm
@@ -429,25 +446,28 @@ def checkKey(OMRresponse,key1,key2):
     except:
         return False
 
-def readResponse(squad,TEMPLATE,image,name,save=None,thresholdRead=127.5,explain=True,bord=-1,
+def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bord=-1,
+    TEMPLATE = TEMPLATES[squad]
     white=(200,150,150),black=(25,120,20),badscan=0,multimarkedTHR=153,isint=True):
     try: 
         img = image.copy()
-        # (1500, 1846)
         print("Cropped dim", img.shape[:2])
-        img = resize_util(img,1846,1500)
-        print("Cropped dim", img.shape[:2])
+        # 1846 x 1500
+        img = resize_util(img,TEMPLATE.dims[0],TEMPLATE.dims[1])
+        print("Resized dim", img.shape[:2])
 
         img = normalize_util(img)
         # print("m1",img.min())
         # print("m2",img[100:-100,100:-100].min())
 
+        # Our reading is not exactly thresholding
         # _, t = cv2.threshold(img,100,255,cv2.THRESH_BINARY)
-        w,h=(boxDimX,boxDimY)
-        mask = 255*np.ones((w,h), np.uint8)
+
+        w,h = TEMPLATE.boxDims
+        mask = 255 * np.ones((w,h), np.uint8)
         lang = ['E','H']
         OMRresponse={}
-        black,grey=(0,0,0),(200,150,150)
+        black,grey = (0,0,0),(200,150,150)
         clrs=[grey,black]
 
         multimarked,multiroll=0,0
@@ -458,16 +478,43 @@ def readResponse(squad,TEMPLATE,image,name,save=None,thresholdRead=127.5,explain
         whiteTHRs=[255]
 
         if(showimglvl>=1):
-            allQboxvals={QTYPE_INT:[],QTYPE_MCQ:[]}#QTYPE_ROLL:[]}#,QTYPE_MED:[]}
-            qNums={QTYPE_INT:[],QTYPE_MCQ:[]}#,QTYPE_ROLL:[]}#,QTYPE_MED:[]}
-            # f, axes = plt.subplots(len(TEMPLATE)//2,sharey=True, sharex=True)
+            allQboxvals={"QTYPE_INT":[],"QTYPE_MCQ":[]}#"QTYPE_ROLL":[]}#,"QTYPE_MED":[]}
+            qNums={"QTYPE_INT":[],"QTYPE_MCQ":[]}#,"QTYPE_ROLL":[]}#,"QTYPE_MED":[]}
+            # f, axes = plt.subplots(len(TEMPLATE.Qs)//2,sharey=True, sharex=True)
             # f.canvas.set_window_title(name)
             # f.suptitle("Questionwise Histogram")
         
+        ### Find Shifts for the QBlocks
+
+        # Make dark pixels darker, light ones lighter >> Square the Image
+        gray = square_util(gray)
+        # get Vertical gradients
+        gray = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+
+        box = [[245,156], [20, 100]]
+        s,d = box
+        w = d[0]
+
+        # TODO: save time for sum in original implementation
+        maxS, shiftM = 0, 0
+        for shift in range(-w//5,w//5,2):
+            window = gray[s[1]:s[1]+d[1],s[0]+shift:s[0]+shift+d[0]]
+            # m,M = window.min(),window.max()
+            # window = ((window-m)*255)/(M-m)
+            sm = np.sum(abs(window))
+            print(shift, sm)
+            gray2=gray.copy()
+            cv2.rectangle(gray2,(s[0]+shift,s[1]),(s[0]+shift+d[0],s[1]+d[1]),(0,1,0),2)
+            show("Image", gray2)
+            if(maxS < sm):
+                maxS = sm
+                shiftM = shift
+
+
         
         # Find the first 'big' jump and set it as threshold:
         QVals=[]
-        for Que in TEMPLATE:
+        for Que in TEMPLATE.Qblocks:
             for pt in Que.pts:
                 QVals.append(cv2.mean(img[  pt.y:pt.y+h, pt.x:pt.x+w ],mask)[0])
         
@@ -503,7 +550,7 @@ def readResponse(squad,TEMPLATE,image,name,save=None,thresholdRead=127.5,explain
             ax.set_xlabel("Q Boxes sorted by Intensity")
             plt.show()
 
-        for ctr,Que in enumerate(TEMPLATE):
+        for ctr,Que in enumerate(TEMPLATE.Qblocks):
             Qboxvals=[]
             for pt in Que.pts:
                 ptXY=(pt.x,pt.y)
@@ -524,6 +571,7 @@ def readResponse(squad,TEMPLATE,image,name,save=None,thresholdRead=127.5,explain
                     # [y,y+h,xminus2,xplus2], 
                 ]
                 
+                # This is NOT usual thresholding, rather call it boxed mean-thresholding
                 detected=False
                 for rect in check_rects:
                     boxval = cv2.mean(img[  rect[0]:rect[1] , rect[2]:rect[3] ],mask)[0]
@@ -547,11 +595,11 @@ def readResponse(squad,TEMPLATE,image,name,save=None,thresholdRead=127.5,explain
         #             try:
                     q = Que.qNo
                     val = pt.val
-                    if(Que.qType==QTYPE_ROLL):
+                    if(Que.qType=="QTYPE_ROLL"):
                         key1,key2 = 'Roll',q[1:] #'r1'
-                    elif(Que.qType==QTYPE_MED):
+                    elif(Que.qType=="QTYPE_MED"):
                         key1,key2 = q,q
-                    elif(Que.qType==QTYPE_INT):
+                    elif(Que.qType=="QTYPE_INT"):
                         key1,key2= 'INT'+ q[:-2],q[-2:]
                     else:
                         key1,key2= 'MCQ'+str(q),'val'
@@ -590,7 +638,7 @@ def readResponse(squad,TEMPLATE,image,name,save=None,thresholdRead=127.5,explain
                 # axes[ctr//2].hist(Qboxvals, bins=range(0,256,16))
                 # axes[ctr//2].set_ylabel(Que.qNo[:-2])
                 # axes[ctr//2].legend(["D1","D2"],prop={"size":6})
-                if(Que.qType == QTYPE_INT or Que.qType == QTYPE_MCQ):
+                if(Que.qType == "QTYPE_INT" or Que.qType == "QTYPE_MCQ"):
                     qNums[Que.qType].append(Que.qNo)
                     allQboxvals[Que.qType].append(Qboxvals)
         

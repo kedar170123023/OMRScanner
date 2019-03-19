@@ -1,4 +1,5 @@
 import cv2
+import json
 import numpy as np
 from constants import *
 
@@ -12,8 +13,8 @@ template = cv2.imread('images/FinalCircle_hd.png',cv2.IMREAD_GRAYSCALE) #,cv2.CV
 template = resize_util(template, int(template.shape[1]/templ_scale_down))
 template = cv2.GaussianBlur(template, (5, 5), 0)
 template = cv2.normalize(template, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
-# template_eroded_inv = template-cv2.erode(template,None)
-template_eroded_inv = template - cv2.erode(template, kernel=np.ones((5,5)),iterations=5)
+# template_eroded_sub = template-cv2.erode(template,None)
+template_eroded_sub = template - cv2.erode(template, kernel=np.ones((5,5)),iterations=5)
 lontemplateinv = cv2.imread('images/lon-inv-resized.png',cv2.IMREAD_GRAYSCALE)
 # lontemplateinv = imutils.rotate_bound(lontemplateinv,angle=180) 
 # lontemplateinv = imutils.resize(lontemplateinv,height=int(lontemplateinv.shape[1]*0.75))
@@ -44,6 +45,27 @@ class Q():
         self.pts = pts
         self.ans = ans
 
+class Qblock():
+    def __init__(self,orig, dims, Qs):
+        self.orig=orig
+        self.dims=dims
+        self.Qs=Qs
+
+class Template():
+    def __init__(self):
+        self.Qblocks = []
+        self.boxDims = [-1, -1]
+        self.dims = [-1,-1]
+
+    def setDims(dims):
+        self.dims = dims
+
+    def setBoxDims(dims):
+        self.boxDims = dims
+
+    def addQblock(rect):
+        self.Qblocks.append(Qblock(rect.orig, calcQBlockDims(rect), maketemplate(rect)))
+
 def genRect(orig, qNos, gaps, vals, qType, orient):
     """
     Input:
@@ -52,6 +74,7 @@ def genRect(orig, qNos, gaps, vals, qType, orient):
     gaps - (gapX,gapY) are the gaps between rows and cols in a block
     vals - values of each alternative for a question
 
+    Output:
     Returns set of coordinates of a rectangular grid of points
     
         1 2 3 4
@@ -91,6 +114,7 @@ def genGrid(orig, qNos, bigGaps, gaps, vals, qType, orient='V'):
     vals - a 1D array of values of each alternative for a question
     orient - The way of arranging the vals (vertical or horizontal)
 
+    Output:
     Returns an array of Q objects (having their points) arranged in a rectangular grid
 
                                 00    00    00    00
@@ -157,108 +181,64 @@ def calcGaps(PointsX,PointsY,numsX,numsY):
     return (gapsX,gapsY)
 
 
+def calcQBlockDims(rect):
+    # 
+    rect.
+    return (dimsX,dimsY)
+
+
 def scalePts(pts,facX,facY):
     for pt in pts:
         pt = (pt[0]*facX,pt[1]*facY)
 
+def read_template(filename):    
+    with open(filename, "r") as f:
+        return json.load(f)
+
+
 # Config for Manual fit - 
-templJSON={}
-templJSON['J']={
-    'Medium' : {
-    'qType' : QTYPE_MED,
-    'orig' : [160,276],
-    'bigGaps' : [115,51],
-    'gaps' : [59,46],
-    'qNos' : [[['Medium']]]
-    },
-    'Roll' : {
-    'qType' : QTYPE_ROLL,
-    'orig' : [218,276],
-    'bigGaps' : [115,51],
-    'gaps' : [58,46],
-    'qNos' : [[['r'+str(i) for i in range(0,9)]]]
-    },
-    'Int1' : {
-    'qType' : QTYPE_INT,
-    'orig' : [903,276],
-    'bigGaps' : [115,51],
-    'gaps' : [59,46],
-    'qNos' : [[('q'+str(i)+'.1','q'+str(i)+'.2') for i in range(5,8)]]
-    },
-    'Int2' : {
-    'qType' : QTYPE_INT,
-    'orig' : [1418,276],
-    'bigGaps' : [115,51],
-    'gaps' : [59,46],
-    'qNos' : [[('q'+str(i)+'.1','q'+str(i)+'.2') for i in range(8,10)]]
-    },
-    'Mcq1' : {
-    'qType' : QTYPE_MCQ,
-    'orig' : [118,857],
-    'bigGaps' : [115,183],
-    'gaps' : [59,53],
-    'qNos' : [[['q'+str(i) for i in range(1,5)],['q'+str(i) for i in range(10,14)]]]
-    },
-    'Mcq2' : {
-    'qType' : QTYPE_MCQ,
-    'orig' : [905,860],
-    'bigGaps' : [115,180],
-    'gaps' : [59,53],
-    'qNos' : [[['q'+str(i) for i in range(14,17)]]]
-    },
-    'Mcq3' : {
-    'qType' : QTYPE_MCQ,
-    'orig' : [905,1195],
-    'bigGaps' : [115,180],
-    'gaps' : [59,53],
-    'qNos' : [[['q'+str(i) for i in range(17,21)]]]
-    }
+templJSON={
+'J' : read_template("J_template.json"),
+'H' : read_template("H_template.json")
 }
 
-templJSON['H']={
-    'Int1' : {
-    'qType' : QTYPE_INT,
-    'orig' : [903,278],
-    'bigGaps' : [128,51],
-    'gaps' : [62,46],
-    'qNos' : [[('q'+str(i)+'.1','q'+str(i)+'.2') for i in range(9,13)]]
-    },
-    'Int2' : {
-    'qType' : QTYPE_INT,
-    'orig' : [1655, 275],
-    'bigGaps' : [128,51],
-    'gaps' : [62,46],
-    'qNos' : [[('q'+str(i)+'.1','q'+str(i)+'.2') for i in range(13,14)]]
-    },
-}
-for k in ['Medium', 'Roll', 'Mcq1','Mcq2','Mcq3']:
-    templJSON['H'][k]=templJSON['J'][k]
-
-commonargs={
-QTYPE_MED:{
+qtype_data = {
+'QTYPE_MED':{
 'vals' : ['E','H'],
 'orient':'V'
 },
-QTYPE_ROLL:{
+'QTYPE_ROLL':{
 'vals':range(10),
 'orient':'V'
 },
-QTYPE_INT:{
+'QTYPE_INT':{
 'vals':range(10),
 'orient':'V'
 },
-QTYPE_MCQ:{
+'QTYPE_MCQ':{
 'vals' : ['A','B','C','D'],
 'orient':'H'
 },
 }
-TEMPLATES={'J':[],'H':[]}
+
+TEMPLATES={'J': Template(),'H': Template()}
 def maketemplate(rect):
     # keyword arg unpacking followed by named args
-    return genGrid(**rect,**commonargs[rect['qType']])
+    return genGrid(**rect,**qtype_data[rect['qType']])
 
-# scale fit
-for squad,templ in templJSON.items():
-    for rect in templ.values():
+
+for squad in ['J','H']:
+    for k, rect in templJSON[squad].items():
+        if(k=="Dimensions"):
+            TEMPLATES[squad].setDims(rect)
+            continue
+        if(k=="boxDimensions"):
+            TEMPLATES[squad].setBoxDims(rect)
+            continue
+        # Internal adjustment: scale fit
         scalePts([rect['orig'],rect['bigGaps'],rect['gaps']],omr_templ_scale[0],omr_templ_scale[1])
-        TEMPLATES[squad] += maketemplate(rect)
+        # Add QBlock to array of grids
+        TEMPLATES[squad].addQblock(rect)
+
+    if(TEMPLATES[squad].dims != [-1, -1]):
+        print("Invalid JSON! No reference dimensions given")

@@ -43,17 +43,96 @@ Refactor more-
 // Debug template matching
 
 
-Apply DFT and IFT on cropped one just to see.
-
 // Checkout this weird trick that makes marked bubbles and the template circle distinctly blobby- 
 	gray = gray - cv2.erode(gray, kernel=np.ones((5,5)),iterations=5)
 
-Excess:
-	Defeat the bossbg.jpg
-	3D viz (online) of this templateMatch output to see the peaks
+// (Fri) Mail the progress (pic dumps)
 
-(Fri) Mail the progress (pic dumps)
+
+///////////////
+# Notes
+Resizes in algo
+
+template.py
+	template = resize_util(template, int(template.shape[1]/templ_scale_down))
+
+show()
+ 	img = resize_util(orig,display_width) if resize else orig
+
+getBestMatch
+    templ_scaled = imutils.resize(template_eroded_sub, height = int(h*s))
+
+getROI
+    image_norm = resize_util(image_norm, uniform_width_hd)
+    # Resize back to uniform height
+    warped_image_eroded_sub = resize_util(warped_image_eroded_sub, uniform_width_hd)
+    warped_image_norm = resize_util(warped_image_norm, uniform_width_hd)
+    # resize to best scale
+	templ = imutils.resize(template_eroded_sub, height = int(template_eroded_sub.shape[0]*best_scale))
+
+	# template fit resizing
+    img = resize_util(img,1846,1500)
+
+testImg
+	img = resize_util(img,uniform_width_hd)
+///////////////
 
 After MS:
 - Refactor readResponse
-- Mechanisms to check if circles found form a rectangle-like shape
+//- Shifting ideation 
+- Apply DFT and IFT on cropped one just to see.
+- Get more test data : On which template shifts currently
+	>
+
+Excess:
+	Mechanisms to check if circles found form a rectangle-like shape
+	Defeat the bossbg.jpg	
+	3D viz (online) of this templateMatch output(, Sobel eroded blobs) to see the peaks
+
+Shifting - 
+Problem: [Nonlinear Distortion] There's an uneven shift(mainly horizontal) of order of 2-3 pixels in the Qbox columns
+
+Nope- Rect level soln
+	> Easier to align
+	> Assumes there's a bounding rect present for alignment
+	> Still the rects are long, nonlinear distortion would still mess it up	
+
+Qbox level soln
+	Naive approach (inefficient here)
+		> Take each QBlock, move it around in 20% area and return the pos where an index is maximum. 
+			The index can be - 
+			1. Correlation : Error chances significant as there are smaller box lines that also correlate 
+		_/  2. Correlation on Eroded image : Gotta try
+				It is taken with white color anyway: so just take max white value.
+	
+	Different approach 1
+		> We'd always have partially filled(gray or black) Qboxes, move them individually towards the black area
+			- wont work on noise due to xerox bg!
+
+** > readResponse works better on this (moderately) eroded_sub?
+- Nope, the unfilled ones also become dark, only the boundary around filled ones can be utilised for something awesome
+
+
+16 Mar 19
+Major Changes:
+	// Implemented shifting in test file
+	Threshold from gap needs to be columnwise- Xerox grays are pretty bad
+		- e.g. on HE_Banglaore_01 Xeroxed sheet it works miserably.
+Minor Changes:
+	Resize page(>>BOTH W & H) to fixed size after Warp layer 1 ==> No need of scaled checking?!
+
+19 Mar 19
+// Implemented shifting in utils
+
+Minor: 
+// Separated JSONs from template.py 
+
+Some dilemmas and decisions over them-
+> Template json contents : Should 'qblockDims' be written in the file or calculated from Gaps already present there
+	--> Minimal redundancy should be followed, so calculate. 
+	--> Giving it in file also introduces interdependencies - changing qNos reqs recalculating qblockDims again.
+	<-- But won't it be fixed for the template? And more accurate than calculating using gaps?
+
+> Making QBlock class :
+	<-- Keeping as array was simple, now more loops introduced
+	--> The paradigm was demanded on need by my subcons, gotta trust my guts this time.
