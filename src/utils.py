@@ -258,7 +258,8 @@ def findPage(image_norm):
     # Closing is reverse of Opening, Dilation followed by Erosion.
     """
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-    closed = cv2.morphologyEx(edge, cv2.MORPH_CLOSE, kernel)
+    # Close the small holes, or complete the edges in canny
+    closed = cv2.morphologyEx(edge, cv2.MORPH_CLOSE, kernel) 
 
     # findContours returns outer boundaries in CW and inner boundaries in ACW order.
     cnts = imutils.grab_contours(cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE))
@@ -416,7 +417,7 @@ def getROI(filepath,filename,image_norm, closeup=False):
     warped_image_norm = four_point_transform(warped_image_norm, np.array(centres))
     
     if(showimglvl>=2):
-        # show('warped_image_eroded_sub',warped_image_eroded_sub,pause=0)    
+        show('warped_image_eroded_sub',warped_image_eroded_sub,pause=0)    
         show(filename,warped_image_norm,0)    
      
     # images/OMR_Files/4137/HE/Xerox/Durgapur_HE_04_prsp_13.22_18.78_5.jpg
@@ -432,7 +433,7 @@ def getROI(filepath,filename,image_norm, closeup=False):
     # warped_image_eroded_sub = warped_image_norm - cv2.erode(warped_image_norm, kernel=np.ones((5,5)),iterations=2)
 
     OMRresponse,retimg,multimarked,multiroll,mw,mb = readResponse(squad,warped_image_norm, name = newfilename)
-    show("retimg",retimg,1,1)
+    show("Corrected Image",retimg,1,1)
     
     return warped_image_norm
 
@@ -490,51 +491,61 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
             # f.canvas.set_window_title(name)
             # f.suptitle("Questionwise Histogram")
         
+        initial=img.copy()
+        dims = TEMPLATE.boxDims
+        for QBlock in TEMPLATE.QBlocks:
+            for Que in QBlock.Qs:
+                for pt in Que.pts:
+                    cv2.rectangle(initial,(pt.x,pt.y),(pt.x+dims[0],pt.y+dims[1]),grey,-1)
+        show("Initial template", initial,0,1)
+        
         # For threshold finding
         QVals=[]
 
         ### Find Shifts for the QBlocks --> Before calculating threshold!
+        gray = img.copy() # 
+        # Open : erode then dilate!
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 10))
+        THK = 2 # acc to kernel
+        gray =  255 - cv2.morphologyEx(gray, cv2.MORPH_OPEN, kernel, iterations=3)
         # Make dark pixels darker, light ones lighter >> Square the Image
-        gray = square_util(img)
-        # get Vertical gradients
-        gray = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
-        
+        gray = square_util(gray)
+        show("morph_open_inv_sq", gray, 0, 1)
+        # gray = abs(gray) #for Sobel
+
+
+
 # templ adjust code
-        gray2=gray.copy()
-        for QBlock in TEMPLATE.QBlocks:
-            n, s,d = QBlock.key, QBlock.orig, QBlock.dims
-            shift = 0
-            THK = 3
-            cv2.rectangle(gray2,(s[0]+shift-THK,s[1]-THK),(s[0]+shift+d[0]+THK,s[1]+d[1]+THK),(100,100,100),2+2*THK)
-            cv2.rectangle(gray2,(s[0]+shift,s[1]),(s[0]+shift+d[0],s[1]+d[1]),(0,0,1),3)
-        cv2.namedWindow('Template Overlay', cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Template Overlay', gray2.shape[1]//2, gray2.shape[0]//2)
-        show("Template Overlay", gray2, 1, 1)
-        exit(0)
+        # gray2=gray.copy()
+        # for QBlock in TEMPLATE.QBlocks:
+        #     n, s,d = QBlock.key, QBlock.orig, QBlock.dims
+        #     shift = 0
+        #     # cv2.rectangle(gray2,(s[0]+shift-THK,s[1]-THK),(s[0]+shift+d[0]+THK,s[1]+d[1]+THK),(100,100,100),3 + THK)
+        #     cv2.rectangle(gray2,(s[0]+shift,s[1]),(s[0]+shift+d[0],s[1]+d[1]),(0,0,1),3)
+        # show("Template Overlay", gray2, 1, 1, [0,0])
 
         for QBlock in TEMPLATE.QBlocks:
-            orig = QBlock.orig
-            qBlockDims = QBlock.dims
-
             s,d = QBlock.orig, QBlock.dims
             print("Aligning QBlock: ",QBlock.key, ", Dimensions:", QBlock.dims, "orig:", QBlock.orig)
             # TODO: save time for sum in original implementation
             maxS, shiftM = 0, 0
             # TODO: Tune factor of scan
-            ALIGN_STRIDE = 1
-            for shift in range(int(-d[0] * ALIGN_FAC),int(d[0] * ALIGN_FAC), ALIGN_STRIDE):
-                window = gray[s[1]:s[1]+d[1],s[0]+shift:s[0]+shift+d[0]]
-                # m,M = window.min(),window.max()
-                # window = ((window-m)*255)/(M-m)
-                sm = np.sum(abs(window))
-                
+            for shift in ALIGN_RANGE:
+                # take QVals wise sum of means
+                sm = 0
+                # gray2=gray.copy()
+                for col in QBlock.cols:
+                    o,e = col
+                    # shifted
+                    o[0] += shift 
+                    e[0] += shift + THK
+                    window = gray[ o[1]:e[1] , o[0]:e[0] ]
+                    sm += cv2.mean(window)[0]
+                    # cv2.rectangle(gray2,(o[0],o[1]),(e[0],e[1]),(0,0,1),3)
+
                 # Logs
-                print(shift, sm)
-                gray2=gray.copy()
-                THK = 3
-                cv2.rectangle(gray2,(s[0]+shift-THK,s[1]-THK),(s[0]+shift+d[0]+THK,s[1]+d[1]+THK),(100,100,100),2+2*THK)
-                cv2.rectangle(gray2,(s[0]+shift,s[1]),(s[0]+shift+d[0],s[1]+d[1]),(0,0,1),3)
-                show("Image", gray2, 1, 1)
+                # print(shift, sm)                
+                # show("Image", gray2, 1, 1, [0,0])
 
                 if(maxS < sm):
                     maxS = sm
@@ -542,7 +553,6 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
             QBlock.shift = shiftM
             # if(QBlock.shift != 0):
             print("Note: QBlock alignment corrected","Shift:", QBlock.shift)
-
 
             for Que in QBlock.Qs:
                 for pt in Que.pts:
@@ -613,7 +623,6 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
                         boxval = cv2.mean(img[  rect[0]:rect[1] , rect[2]:rect[3] ])[0]
                         if(thresholdRead > boxval):
                             detected=True
-                        # retimg = cv2.rectangle(retimg,(rect[2],rect[0]),(rect[3],rect[1]),clrs[int(detected)],bord)                    
                         if(detected):break;
 
                     if(not detected): 
@@ -624,7 +633,8 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
                     #for hist
                     Qboxvals.append(boxval)
 
-                    retimg = cv2.rectangle(retimg,(x,y),(x+w,y+h),clrs[int(detected)],bord)
+                    # cv2.rectangle(retimg,(x,y),(x+w,y+h),clrs[int(detected)],bord)
+                    cv2.rectangle(retimg,(x,y),(x+w,y+h),grey,bord)
 
                     if (detected):
                         blackTHRs.append(boxval)
@@ -679,7 +689,7 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
                         allQboxvals[Que.qType].append(Qboxvals)
                 ctr += 1
             
-        if(showimglvl>=1):
+        if(showimglvl>=2):
             # plt.draw()
             f, axes = plt.subplots(len(allQboxvals),sharey=True)
             f.canvas.set_window_title(name)

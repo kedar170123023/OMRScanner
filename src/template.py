@@ -39,21 +39,41 @@ class Q():
     It can be used as a roll number column as well. (eg roll1)
     It can also correspond to a single digit of integer type Q (eg q5d1)
     """
-    def __init__(self,qNo,qType, pts,ans=None):
+    def __init__(self, qNo,qType, pts,ans=None):
         self.qNo = qNo
         self.qType = qType
         self.pts = pts
         self.ans = ans
 
 class QBlock():
-    def __init__(self, dims, key, orig, Qs):
+    def __init__(self, dims, key, orig, Qs, cols):
         # dims = (width, height)
         self.dims = dims
         self.key = key
         self.orig = orig
         self.Qs = Qs
+        self.cols = cols
         # will be set when using
         self.shift = 0
+
+qtype_data = {
+    'QTYPE_MED':{
+        'vals' : ['E','H'],
+        'orient':'V'
+    },
+    'QTYPE_ROLL':{
+        'vals':range(10),
+        'orient':'V'
+    },
+    'QTYPE_INT':{
+        'vals':range(10),
+        'orient':'V'
+    },
+    'QTYPE_MCQ':{
+        'vals' : ['A','B','C','D'],
+        'orient':'H'
+    },
+}
 
 class Template():
     def __init__(self):
@@ -69,11 +89,12 @@ class Template():
 
     # Expects boxDims to be set already
     def addQBlocks(self, key, rect):
+        assert(self.boxDims != [-1, -1])
         # keyword arg unpacking followed by named args
         self.QBlocks += genGrid(self.boxDims, key, **rect,**qtype_data[rect['qType']])
         # self.QBlocks.append(QBlock(rect.orig, calcQBlockDims(rect), maketemplate(rect)))
 
-def genQBlock(QBlockDims, key, orig, qNos, gaps, vals, qType, orient):
+def genQBlock(boxDims, QBlockDims, key, orig, qNos, gaps, vals, qType, orient):
     """
     Input:
     orig - start point
@@ -100,20 +121,41 @@ def genQBlock(QBlockDims, key, orig, qNos, gaps, vals, qType, orient):
 
     """
     Qs=[]
+    cols = []
     H, V = (0,1) if(orient=='H') else (1,0)
-    o = orig[:] # copy list  <-- Not for multi dimensions tho!
+    orig = np.array(orig)
+
+    orig[1] -= 3 # correct shift
+    orig[0] -= 6 # test shift
+    
+    o = orig.copy()
     for qNo in qNos:
-        pt = o[:] #copy pt
+        # pt = o[:] #copy pt <-- only on list, not on np or multiD list!
+        pt = o.copy()
         pts=[]
         for v in vals:
             pts.append(Pt(pt,v))
-            pt[H] += gaps[H]
-        o[V] += gaps[V]
+            pt[H] += gaps[H]            
+        pt[H] = pt[H] + boxDims[H] - gaps[H]
+        pt[V] = pt[V] + boxDims[V]
+        # print(qNo, orig, o, pt)            
+        if(orient == 'V'):
+            cols.append([o.copy(), pt.copy()])
         Qs.append( Q(qNo,qType, pts))
+        o[V] += gaps[V]
     
-    return QBlock(QBlockDims, key, orig, Qs)
+    if(orient == 'H'):
+        o = orig.copy()
+        for v in vals:
+            pt = o.copy()
+            pt[H] += boxDims[H]
+            pt[V] += boxDims[V] + (len(qNos)-1) * gaps[V]
+            cols.append([o.copy(), pt.copy()])
+            o[H] += gaps[H]
 
-def genGrid(boxDims, key, orig, qNos, bigGaps, gaps, vals, qType, orient='V'):
+    return QBlock(QBlockDims, key, orig, Qs, cols)
+
+def genGrid(boxDims, key, qType, orig, bigGaps, gaps, qNos, vals, orient='V'):
     """
     Input:
     boxDims - dimesions of single QBox
@@ -209,7 +251,7 @@ def genGrid(boxDims, key, orig, qNos, bigGaps, gaps, vals, qType, orient='V'):
                 gaps[1] * (numDims[H]-1) + boxDims[V]
             ]
             # TONIGHT'S BLUNDER - qStart was getting passed by reference! (others args read-only)
-            QBlocks.append(genQBlock(QBlockDims, key, qStart[:],qTuple,gaps,vals,qType,orient))
+            QBlocks.append(genQBlock(boxDims, QBlockDims, key, qStart[:],qTuple,gaps,vals,qType,orient))
             qStart[V] += origGap[V]
         qStart[H] += origGap[H]
     return QBlocks
@@ -223,27 +265,6 @@ def calcGaps(PointsX,PointsY,numsX,numsY):
 def read_template(filename):    
     with open(filename, "r") as f:
         return json.load(f)
-
-
-
-qtype_data = {
-'QTYPE_MED':{
-'vals' : ['E','H'],
-'orient':'V'
-},
-'QTYPE_ROLL':{
-'vals':range(10),
-'orient':'V'
-},
-'QTYPE_INT':{
-'vals':range(10),
-'orient':'V'
-},
-'QTYPE_MCQ':{
-'vals' : ['A','B','C','D'],
-'orient':'H'
-},
-}
 
 def scalePts(pts,facX,facY):
     return [[int(pt[0]*facX),int(pt[1]*facY)] for pt in pts]
@@ -271,3 +292,20 @@ for squad in ['J','H']:
     if(TEMPLATES[squad].dims == [-1, -1]):
         print(squad, "Invalid JSON! No reference dimensions given")
         exit(0)
+
+
+
+
+
+"""
+# mask = 255 * np.ones(pt - o,np.uint8).T
+# pt = [0, 0] # relative to mask
+# # print(mask.shape, gaps, vals, pt, boxDims)
+# for v in vals:
+#     mask[pt[1]:pt[1]+boxDims[1], pt[0]:pt[0]+boxDims[0]] = 0
+#     pt[H] += gaps[H] 
+
+# Actually need columns
+# if(orient=='H'):
+#     mask = 255 - mask
+"""

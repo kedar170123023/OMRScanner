@@ -15,7 +15,7 @@ Evaluate Hindi Files acc to diff template & anskey - Korba, Gwalior, Gonda _/ , 
 # "QTYPE_INT","QTYPE_ROLL","QTYPE_MCQ","QTYPE_MED"= range(4)
 typeName={"QTYPE_INT":"Integer","QTYPE_MCQ":"MCQ","QTYPE_MED":"MED","QTYPE_ROLL":"ROLL"}
 
-showimglvl= 0
+showimglvl= 1
 resetpos=[770,10]
 verbose = 9 # Warning, if verbose = 0, the code will pause for image reviews
 explain= 0
@@ -36,8 +36,9 @@ thresholdRead_R =  60
 
 # For new ways of determining threshold
 JUMP_DELTA=20
-#  ALIGN_FAC = Templ alignment scan range factor
-ALIGN_FAC = 0.05
+# Templ alignment parameters
+ALIGN_RANGE  = range(-4,5,2) #
+# ALIGN_RANGE  = [-6,-4,-2,-1,0,1,2,4,6]
 
 # minimum threshold for template matching
 thresholdCircle = 0.4 #matchTemplate returns 0 to 1
