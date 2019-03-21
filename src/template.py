@@ -123,7 +123,6 @@ def genQBlock(boxDims, QBlockDims, key, orig, qNos, gaps, vals, qType, orient):
     Qs=[]
     cols = []
     H, V = (0,1) if(orient=='H') else (1,0)
-
     orig[0] += 5 # test shift
     
     o = orig.copy()
@@ -240,6 +239,7 @@ def genGrid(boxDims, key, qType, orig, bigGaps, gaps, qNos, vals, orient='V'):
     ]
     # print(key, numDims, orig, gaps, bigGaps, origGap )
     qStart = orig.copy()
+
     for row in gridData:        
         qStart[V] = orig[V]
         for qTuple in row:

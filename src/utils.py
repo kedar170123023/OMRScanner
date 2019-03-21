@@ -539,6 +539,7 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
 
         for QBlock in TEMPLATE.QBlocks:
             s,d = QBlock.orig, QBlock.dims
+
             # TODO: save time for sum in original implementation
             maxS, shiftM = 0, 0
             sums = []
@@ -610,6 +611,7 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
         ctr = 0 
         for QBlock in TEMPLATE.QBlocks:
             cv2.putText(retimg,'s%s'% (QBlock.shift), tuple(QBlock.orig - [45,10]),cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE,(50,20,10),3)
+
             for Que in QBlock.Qs:
                 Qboxvals=[]
 
