@@ -102,8 +102,9 @@ Qbox level soln
 		> Take each QBlock, move it around in 20% area and return the pos where an index is maximum. 
 			The index can be - 
 			1. Correlation : Error chances significant as there are smaller box lines that also correlate 
-		_/  2. Correlation on Eroded image : Gotta try
+			2. Correlation on Eroded image : Gotta try
 				It is taken with white color anyway: so just take max white value.
+		_/	3. Correlation on Gradient image : More consistent
 	
 	Different approach 1
 		> We'd always have partially filled(gray or black) Qboxes, move them individually towards the black area
@@ -115,17 +116,21 @@ Qbox level soln
 
 16 Mar 19
 Major Changes:
-	// Implemented shifting in test file
+	// Implemented shifting in align file
 	Threshold from gap needs to be columnwise- Xerox grays are pretty bad
-		- e.g. on HE_Banglaore_01 Xeroxed sheet it works miserably.
+		- e.g. on HE_Bangalore_01 Xeroxed sheet it works miserably.
+	--> Qblock class shall help here.
+
 Minor Changes:
-	Resize page(>>BOTH W & H) to fixed size after Warp layer 1 ==> No need of scaled checking?!
+	Resize page(>>BOTH W & H) to fixed size after Warp layer 1 
+	==> No need of scaled checking?! : Still doing precautionary
 
 19 Mar 19
-// Implemented shifting in utils
+// Implemented (naive) shifting in utils
 
 Minor: 
 // Separated JSONs from template.py 
+// Rather, removed it-  scalePts was not acting since rect{} was introduced, also updated it with int() on pts to support fractional scaling
 
 Some dilemmas and decisions over them-
 > Template json contents : Should 'qblockDims' be written in the file or calculated from Gaps already present there
@@ -137,8 +142,41 @@ Some dilemmas and decisions over them-
 	<-- Keeping as array was simple, now more loops introduced
 	--> The paradigm was demanded on need by my subcons, gotta trust my guts this time.
 
-	
+
 # Let's Apply adaptive threshold QBlock-wise.
 # >> Nope, do column-wise or don't - 
 # Then need to separate the Qs array - doable, but extensible?
 # >> No need! You just need QVals, can get it cumulating via QBlocks too, get it as you find shifts
+
+Wish me clarity!!
+>> (From Speech TA) 7x1 kernel erosion is damn perfect suggestion ==> Makes use of real morphology power
+>> Not now, sometime later! - My Sobel be useful tho (feed the stumbling)
+--> This is why you should work on thinking clearly first before acting.  
+
+Things that should have clicked(altho not useful everytime) when seen first time!
+--> Denoise first using morphology! ( Well, didn't work as expected now!)
+--> Blur then denoise - nop
+
+Sobel : 
+	is an approximation to derivative _// 
+	sign of output doesn't matter _//
+	(1,0) means horizontal gradient _//
+
+
+21 Mar 19
+// Implemented proper shifting in utils
+	Nope, there's more accurate approach - Qval correlation instead of QBlock be most accurate
+	- Area between Qboxes be checked : use a mask! 
+	>> also useful for future changes : if decided to align vertically as well
+--> Further accurate: approach4 - move towards the blob - use MOMENTS!
+	- move towards centroid until direction changes.
+
+Minor:
+	Nope- Q object now has endpts and a mask for aligning 
+		QBlock has cols attribute for vertical cols (even for orient='H') and No mask needed practically
+
+- Test all on dark xerox now.
+	- even white xeroxes making probs now, need to change aligning method to more robust
+	
+- Apply DFT and IFT on cropped one just to see.
+Design the demo scenario now.

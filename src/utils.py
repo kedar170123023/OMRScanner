@@ -78,11 +78,14 @@ def waitQ():
 def normalize_util(img, alpha=0, beta=255):
     return cv2.normalize(img, alpha, beta, norm_type=cv2.NORM_MINMAX)#, dtype=cv2.CV_32F)
 
-def square_util(gray):
-    gray = np.uint16(gray)
-    gray **= 2
-    gray = gray / 255
-    return gray
+# Make dark pixels darker, light ones lighter >> Square the Image
+# Weird behavior with int16 - better use thresholding
+# def square_norm(gray):
+#     show("gray",gray,0,1)
+#     gray = np.uint16(gray)
+#     gray = gray*gray / 255
+#     show("gray^2",gray,1,1)
+#     return gray
 
 def resize_util(img, u_width, u_height=None):
     if u_height == None:
@@ -117,7 +120,7 @@ def show(name,orig,pause=1,resize=False,resetpos=None):
 def putLabel(img,label,pos=(100,50),clr=(255,255,255),size=5):
     # TODO extend image using np
     img[:(pos[1]+size*2), :]= 0
-    cv2.putText(img,label,pos,cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE,clr,size)
+    cv2.putText(img,label,pos,cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE,clr,size)
 
 def myColor1():
     return (randint(100,250),randint(100,250),randint(100,250))
@@ -258,7 +261,8 @@ def findPage(image_norm):
     # Closing is reverse of Opening, Dilation followed by Erosion.
     """
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-    closed = cv2.morphologyEx(edge, cv2.MORPH_CLOSE, kernel)
+    # Close the small holes, or complete the edges in canny
+    closed = cv2.morphologyEx(edge, cv2.MORPH_CLOSE, kernel) 
 
     # findContours returns outer boundaries in CW and inner boundaries in ACW order.
     cnts = imutils.grab_contours(cv2.findContours(closed, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE))
@@ -319,10 +323,10 @@ def getBestMatch(image_eroded_sub, num_steps=10, iterLim=50):
 thresholdCircles=[]
 badThresholds=[]
 veryBadPoints=[]
-def getROI(filepath,filename,image_norm):
+def getROI(filepath,filename,image_norm, closeup=False):
     global template_eroded_sub, squadlang
 
-    image_norm = resize_util(image_norm, uniform_width_hd)
+    image_norm = resize_util(image_norm, uniform_width_hd, uniform_height_hd)
     # image_eroded_sub=image_norm-cv2.erode(image_norm,None)
     # Spread the darkness :P - Erode operation takes MIN over kernel
 
@@ -331,26 +335,28 @@ def getROI(filepath,filename,image_norm):
     TODO:
     Write autorotate-
     """
-    # TODO: Handle case of close up scan(incorrect page)-
-    sheet = findPage(image_norm)
 
-    if sheet==[]:
-        return None
-        
+    # TODO: Automate the case of close up scan(incorrect page)-
+    warped_image_eroded_sub = image_eroded_sub
+    warped_image_norm = image_norm
+    
+    if(closeup == False):
+        sheet = findPage(image_norm)
 
-    # Warp layer 1
-    warped_image_eroded_sub = four_point_transform(image_eroded_sub, sheet)        
-    if(showimglvl>=2):
-        show("page_check",image_norm, pause=False)
-    warped_image_norm = four_point_transform(image_norm, sheet)
+        if sheet==[]:
+            return None        
 
-    # Resize back to uniform width
-    show("1",warped_image_eroded_sub,0)
-    # print(warped_image_eroded_sub.shape)
-    warped_image_eroded_sub = resize_util(warped_image_eroded_sub, uniform_width_hd, uniform_height_hd)
-    # print(warped_image_eroded_sub.shape)
-    show("2",warped_image_eroded_sub)
-    warped_image_norm = resize_util(warped_image_norm, uniform_height_hd, uniform_width_hd)
+        # Warp layer 1
+        warped_image_eroded_sub = four_point_transform(image_eroded_sub, sheet)        
+        if(showimglvl>=2):
+            show("page_check",image_norm, pause=False)
+        warped_image_norm = four_point_transform(image_norm, sheet)
+
+        # Resize back to uniform width
+        # print(warped_image_eroded_sub.shape)
+        # show("1",warped_image_eroded_sub,0)
+        warped_image_eroded_sub = resize_util(warped_image_eroded_sub, uniform_width_hd, uniform_height_hd)
+        warped_image_norm = resize_util(warped_image_norm, uniform_width_hd, uniform_height_hd)
 
     # Quads on warped image
     quads={}
@@ -366,6 +372,9 @@ def getROI(filepath,filename,image_norm):
     # Draw Quadlines
     warped_image_eroded_sub[ : , midw:midw+2] = 255
     warped_image_eroded_sub[ midh:midh+2, : ] = 255
+    
+    # print(warped_image_eroded_sub.shape)
+    # show("2",warped_image_eroded_sub)
     
     best_scale = getBestMatch(warped_image_eroded_sub)    
     if(best_scale == None):
@@ -427,7 +436,7 @@ def getROI(filepath,filename,image_norm):
     # warped_image_eroded_sub = warped_image_norm - cv2.erode(warped_image_norm, kernel=np.ones((5,5)),iterations=2)
 
     OMRresponse,retimg,multimarked,multiroll,mw,mb = readResponse(squad,warped_image_norm, name = newfilename)
-    show("retimg",retimg,1,1)
+    show("Corrected Image",retimg,1,1)
     
     return warped_image_norm
 
@@ -466,16 +475,15 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
         # _, t = cv2.threshold(img,100,255,cv2.THRESH_BINARY)
 
         w,h = TEMPLATE.boxDims
-        mask = 255 * np.ones((w,h), np.uint8)
         lang = ['E','H']
         OMRresponse={}
         black,grey = (0,0,0),(200,150,150)
         clrs=[grey,black]
 
         multimarked,multiroll=0,0
-        alpha=0.65
+        alpha=0.95
         output=img.copy()
-        retimg=img.copy()
+
         blackTHRs=[0]
         whiteTHRs=[255]
 
@@ -486,48 +494,84 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
             # f.canvas.set_window_title(name)
             # f.suptitle("Questionwise Histogram")
         
+        initial=img.copy()
+        dims = TEMPLATE.boxDims
+        for QBlock in TEMPLATE.QBlocks:
+            for Que in QBlock.Qs:
+                for pt in Que.pts:
+                    cv2.rectangle(initial,(pt.x,pt.y),(pt.x+dims[0],pt.y+dims[1]),grey,-1)
+        show("Initial template", initial,0,1)
+        
         # For threshold finding
         QVals=[]
 
         ### Find Shifts for the QBlocks --> Before calculating threshold!
-        # Make dark pixels darker, light ones lighter >> Square the Image
-        gray = square_util(img)
-        # get Vertical gradients
-        gray = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+        morph = img.copy() # 
+        # Open : erode then dilate!
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 10))
+        THK = 1 # acc to kernel
+        morph =  255 - cv2.morphologyEx(morph, cv2.MORPH_OPEN, kernel, iterations=3)
+        _, morph = cv2.threshold(morph,10,255,cv2.THRESH_BINARY)
+        
+        # best tuned to 5x5 now
+        show("open_inv_thr", morph, 0, 1)
+        morph = cv2.erode(morph,  np.ones((5,5),np.uint8), iterations = 2)
+        show("open_inv_thr_ero", morph, 0, 1)
+
+        # sq = np.uint16(morph)
+        # sq = sq*sq / 255
+        # show("sq",sq,0,1)
+        # gray = abs(gray) #for Sobel
+        
+        retimg=img.copy()
+        # retimg = morph.copy()
+
+
+
+# templ adjust code
+        # gray2=morph.copy()
+        # for QBlock in TEMPLATE.QBlocks:
+        #     n, s,d = QBlock.key, QBlock.orig, QBlock.dims
+        #     shift = 0
+        #     # cv2.rectangle(gray2,(s[0]+shift-THK,s[1]-THK),(s[0]+shift+d[0]+THK,s[1]+d[1]+THK),(100,100,100),3 + THK)
+        #     cv2.rectangle(gray2,(s[0]+shift,s[1]),(s[0]+shift+d[0],s[1]+d[1]),(0,0,1),3)
+        # show("Template Overlay", gray2, 1, 1, [0,0])
+
         for QBlock in TEMPLATE.QBlocks:
-            orig = QBlock.orig
-            qBlockDims = QBlock.dims
-
             s,d = QBlock.orig, QBlock.dims
-            w = d[0]
-
             # TODO: save time for sum in original implementation
             maxS, shiftM = 0, 0
+            sums = []
             # TODO: Tune factor of scan
-            for shift in range(-w//5,w//5,2):
-                window = gray[s[1]:s[1]+d[1],s[0]+shift:s[0]+shift+d[0]]
-                # m,M = window.min(),window.max()
-                # window = ((window-m)*255)/(M-m)
-                sm = np.sum(abs(window))
-                
+            for shift in ALIGN_RANGE:
+                # take QVals wise sum of means
+                sm = 0
+                gray2=morph.copy()
+                for col in QBlock.cols:
+                    o,e = col
+                    # shifted
+                    o[0] += shift 
+                    e[0] += shift + THK
+                    window = morph[ o[1]:e[1] , o[0]:e[0] ]
+                    sm += cv2.mean(window)[0]
+                    cv2.rectangle(gray2,(o[0],o[1]),(e[0],e[1]),(0,0,1),3)
+                sums.append(sm)
                 # Logs
-                print(shift, sm)
-                gray2=gray.copy()
-                cv2.rectangle(gray2,(s[0]+shift,s[1]),(s[0]+shift+d[0],s[1]+d[1]),(0,1,0),2)
-                show("Image", gray2)
+                print(shift, sm)                
+                show("Image", gray2, 1, 1, [0,0])
 
                 if(maxS < sm):
                     maxS = sm
                     shiftM = shift
             QBlock.shift = shiftM
             # if(QBlock.shift != 0):
-            print("Note: QBlock alignment corrected", "orig:", QBlock.orig,"shift:", QBlock.shift)
+            sums = sorted(sums, reverse=True)
+            print("Aligned QBlock: ",QBlock.key, ", Dimensions:", QBlock.dims, "orig:", QBlock.orig,"Corrected Shift:", QBlock.shift, "Confidence: ", 100*(maxS - sums[1])/(maxS))
 
-
-            for Que in QBlock:
+            for Que in QBlock.Qs:
                 for pt in Que.pts:
                     # shifted
-                    QVals.append(cv2.mean(img[  pt.y:pt.y+h, pt.x+shiftM:pt.x+shiftM+w ],mask)[0])
+                    QVals.append( cv2.mean( img[  pt.y:pt.y+h, pt.x+shiftM:pt.x+shiftM+w ] )[0])
         
         # Sort the Q vals
         QVals= sorted(QVals)
@@ -564,9 +608,11 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
             plt.show()
 
         ctr = 0 
-        for QBlock in AllQs:
-            for Que in QBlock:
+        for QBlock in TEMPLATE.QBlocks:
+            cv2.putText(retimg,'s%s'% (QBlock.shift), tuple(QBlock.orig - [45,10]),cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE,(50,20,10),3)
+            for Que in QBlock.Qs:
                 Qboxvals=[]
+
                 for pt in Que.pts:
                     # shifted
                     ptXY=(pt.x + QBlock.shift,pt.y)
@@ -590,21 +636,21 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
                     # This is NOT usual thresholding, rather call it boxed mean-thresholding
                     detected=False
                     for rect in check_rects:
-                        boxval = cv2.mean(img[  rect[0]:rect[1] , rect[2]:rect[3] ],mask)[0]
+                        boxval = cv2.mean(img[  rect[0]:rect[1] , rect[2]:rect[3] ])[0]
                         if(thresholdRead > boxval):
                             detected=True
-                        # retimg = cv2.rectangle(retimg,(rect[2],rect[0]),(rect[3],rect[1]),clrs[int(detected)],bord)                    
                         if(detected):break;
 
                     if(not detected): 
                         #reset boxval to first rect 
                         rect = check_rects[0]
-                        boxval = cv2.mean(img[  rect[0]:rect[1] , rect[2]:rect[3] ],mask)[0]
+                        boxval = cv2.mean(img[  rect[0]:rect[1] , rect[2]:rect[3] ])[0]
                     
                     #for hist
                     Qboxvals.append(boxval)
 
-                    retimg = cv2.rectangle(retimg,(x,y),(x+w,y+h),clrs[int(detected)],bord)
+                    # cv2.rectangle(retimg,(x,y),(x+w,y+h),clrs[int(detected)],bord)
+                    cv2.rectangle(retimg,(x,y),(x+w,y+h),grey,bord)
 
                     if (detected):
                         blackTHRs.append(boxval)
@@ -634,10 +680,10 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
                         
                         addInnerKey(OMRresponse,key1,key2,val)
                         
-                        cv2.putText(retimg,str(OMRresponse[key1][key2]),ptXY,cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE,(50,20,10),5)
+                        cv2.putText(retimg,str(OMRresponse[key1][key2]),ptXY,cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE,(50,20,10),5)
                         
                         # if(np.random.randint(0,10)==0):
-                        #     cv2.putText(retimg,"["+str(int(boxval))+"]",(x-2*w,y+h),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE/2,(10,10,10),3)
+                        #     cv2.putText(retimg,"["+str(int(boxval))+"]",(x-2*w,y+h),cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE/2,(10,10,10),3)
                                      
             #             except:
             #                 #No dict key for that point
@@ -647,7 +693,7 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
                     else:
                         whiteTHRs.append(boxval)                    
                         # if(np.random.randint(0,20)==0):
-                        #     cv2.putText(retimg,"["+str(int(boxval))+"]",(x-w//2,y+h//2),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE/2,(10,10,10),3)
+                        #     cv2.putText(retimg,"["+str(int(boxval))+"]",(x-w//2,y+h//2),cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE/2,(10,10,10),3)
                 
                 if(showimglvl>=1):
                     # For int types:
@@ -659,7 +705,7 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
                         allQboxvals[Que.qType].append(Qboxvals)
                 ctr += 1
             
-        if(showimglvl>=1):
+        if(showimglvl>=2):
             # plt.draw()
             f, axes = plt.subplots(len(allQboxvals),sharey=True)
             f.canvas.set_window_title(name)
@@ -686,6 +732,8 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
 
         # Translucent
         retimg = cv2.addWeighted(retimg,alpha,output,1-alpha,0,output)    
+        # retimg = cv2.addWeighted(retimg,alpha,morph,1-alpha,0,morph)    
+
         # print('Keep THR between : ',,np.mean(whiteTHRs))
         global maxBlackTHR,minWhiteTHR
         maxBlackTHR = max(maxBlackTHR,np.max(blackTHRs))
@@ -693,11 +741,11 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
         
         ## Real helping stats:
 
-        # cv2.putText(retimg,"avg: "+str(["avgBlack: "+str(round(np.mean(blackTHRs),2)),"avgWhite: "+str(round(np.mean(whiteTHRs),2))]),(20,50),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE,(50,20,10),4)
-        # cv2.putText(retimg,"ext: "+str(["maxBlack: "+str(round(np.max(blackTHRs),2)),"minW(gray): "+str(round(np.min(whiteTHRs),2))]),(20,90),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE,(50,20,10),4)
+        # cv2.putText(retimg,"avg: "+str(["avgBlack: "+str(round(np.mean(blackTHRs),2)),"avgWhite: "+str(round(np.mean(whiteTHRs),2))]),(20,50),cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE,(50,20,10),4)
+        # cv2.putText(retimg,"ext: "+str(["maxBlack: "+str(round(np.max(blackTHRs),2)),"minW(gray): "+str(round(np.min(whiteTHRs),2))]),(20,90),cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE,(50,20,10),4)
         
         if(retimg.shape[1] > 4 + uniform_width_hd): #observation
-            cv2.putText(retimg,str(retimg.shape[1]),(50,80),cv2.FONT_HERSHEY_SIMPLEX, CV2_FONTSIZE,(50,20,10),3)
+            cv2.putText(retimg,str(retimg.shape[1]),(50,80),cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE,(50,20,10),3)
             # badwidth = 1
 
         tosave = ( type(save) != type(None))
@@ -713,6 +761,7 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
                 cv2.imwrite(save+name+'_marked'+'.jpg',retimg)
 
         return OMRresponse,retimg,multimarked,multiroll,minWhiteTHR,maxBlackTHR
+
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
