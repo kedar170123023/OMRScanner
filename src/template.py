@@ -123,7 +123,8 @@ def genQBlock(boxDims, QBlockDims, key, orig, qNos, gaps, vals, qType, orient):
     Qs=[]
     cols = []
     H, V = (0,1) if(orient=='H') else (1,0)
-    orig[0] += 5 # test shift
+    # orig[0] += np.random.randint(-5,6) # test random shift
+    orig[0] -= 10
     
     o = orig.copy()
     for qNo in qNos:

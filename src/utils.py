@@ -457,6 +457,13 @@ def checkKey(OMRresponse,key1,key2):
     except:
         return False
 
+def getCentroid(window):
+    h, w = window.shape
+    ax = np.array([[x for x in range(w)]] * h)
+    ay = np.array([[y]* w for y in range(h)])
+    centroid = [np.average(ax,weights = window), np.average(ay,weights = window)]
+    return centroid
+
 def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bord=-1,
     white=(200,150,150),black=(25,120,20),badscan=0,multimarkedTHR=153,isint=True):
     TEMPLATE = TEMPLATES[squad]
@@ -474,7 +481,7 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
         # Our reading is not exactly thresholding
         # _, t = cv2.threshold(img,100,255,cv2.THRESH_BINARY)
 
-        w,h = TEMPLATE.boxDims
+        boxW,boxH = TEMPLATE.boxDims
         lang = ['E','H']
         OMRresponse={}
         black,grey = (0,0,0),(200,150,150)
@@ -494,14 +501,6 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
             # f.canvas.set_window_title(name)
             # f.suptitle("Questionwise Histogram")
         
-        initial=img.copy()
-        dims = TEMPLATE.boxDims
-        for QBlock in TEMPLATE.QBlocks:
-            for Que in QBlock.Qs:
-                for pt in Que.pts:
-                    cv2.rectangle(initial,(pt.x,pt.y),(pt.x+dims[0],pt.y+dims[1]),grey,-1)
-        show("Initial template", initial,0,1)
-        
         # For threshold finding
         QVals=[]
 
@@ -509,71 +508,88 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
         morph = img.copy() # 
         # Open : erode then dilate!
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 10))
-        THK = 1 # acc to kernel
         morph =  255 - cv2.morphologyEx(morph, cv2.MORPH_OPEN, kernel, iterations=3)
         _, morph = cv2.threshold(morph,10,255,cv2.THRESH_BINARY)
         
         # best tuned to 5x5 now
-        show("open_inv_thr", morph, 0, 1)
+        # show("open_inv_thr", morph, 0, 1)
         morph = cv2.erode(morph,  np.ones((5,5),np.uint8), iterations = 2)
-        show("open_inv_thr_ero", morph, 0, 1)
+
+        alpha1 = 0.55
+        overlay = cv2.addWeighted(255 - morph,alpha1,output,1-alpha1,0,output)    
+        retimg = img.copy()
+        # retimg = overlay.copy()
+        # show("Morph Overlay", overlay, 0, 1)
+        
+        initial=img.copy()
+        dims = TEMPLATE.boxDims
+        for QBlock in TEMPLATE.QBlocks:
+            for Que in QBlock.Qs:
+                for pt in Que.pts:
+                    cv2.rectangle(initial,(pt.x,pt.y),(pt.x+dims[0],pt.y+dims[1]),grey,-1)
 
         # sq = np.uint16(morph)
         # sq = sq*sq / 255
         # show("sq",sq,0,1)
         # gray = abs(gray) #for Sobel
         
-        retimg=img.copy()
-        # retimg = morph.copy()
 
 
 
 # templ adjust code
-        # gray2=morph.copy()
-        # for QBlock in TEMPLATE.QBlocks:
-        #     n, s,d = QBlock.key, QBlock.orig, QBlock.dims
-        #     shift = 0
-        #     # cv2.rectangle(gray2,(s[0]+shift-THK,s[1]-THK),(s[0]+shift+d[0]+THK,s[1]+d[1]+THK),(100,100,100),3 + THK)
-        #     cv2.rectangle(gray2,(s[0]+shift,s[1]),(s[0]+shift+d[0],s[1]+d[1]),(0,0,1),3)
-        # show("Template Overlay", gray2, 1, 1, [0,0])
+        THK = 0 # acc to morph kernel
+        gray2=overlay.copy()
+        for QBlock in TEMPLATE.QBlocks:
+            n, s,d = QBlock.key, QBlock.orig, QBlock.dims
+            shift = 0
+            cv2.rectangle(gray2,(s[0]+shift-THK,s[1]-THK),(s[0]+shift+d[0]+THK,s[1]+d[1]+THK),(10,10,10),3)
+            # cv2.rectangle(gray2,(s[0]+shift,s[1]),(s[0]+shift+d[0],s[1]+d[1]),(0,0,1),3)
+        show("Initial Template Overlay", 255 -  gray2, 0, 1, [0,0])
 
         for QBlock in TEMPLATE.QBlocks:
             s,d = QBlock.orig, QBlock.dims
+            ALIGN_STRIDE, MATCH_COL, ALIGN_STEPS = 1, 5, int(boxW * 2 / 3)
+            shiftM, shift, steps = 0, 0, 0
+            THK = 3
+            while steps < ALIGN_STEPS:
+                L = np.mean(morph[s[1]:s[1]+d[1],s[0]+shift-THK:-THK+s[0]+shift+MATCH_COL])
+                R = np.mean(morph[s[1]:s[1]+d[1],s[0]+shift-MATCH_COL+d[0]+THK:THK+s[0]+shift+d[0]])
+                # print(shift, L, R)
+                LW,RW= L > 100, R > 100
+                if(LW):
+                    if(RW):
+                        shiftM = shift
+                        break
+                    else:
+                        shift -= ALIGN_STRIDE
+                else:
+                    if(RW):
+                        shift += ALIGN_STRIDE
+                    else:
+                        shiftM = shift
+                        break
+                steps += 1
 
-            # TODO: save time for sum in original implementation
-            maxS, shiftM = 0, 0
-            sums = []
-            # TODO: Tune factor of scan
-            for shift in ALIGN_RANGE:
-                # take QVals wise sum of means
-                sm = 0
-                gray2=morph.copy()
-                for col in QBlock.cols:
-                    o,e = col
-                    # shifted
-                    o[0] += shift 
-                    e[0] += shift + THK
-                    window = morph[ o[1]:e[1] , o[0]:e[0] ]
-                    sm += cv2.mean(window)[0]
-                    cv2.rectangle(gray2,(o[0],o[1]),(e[0],e[1]),(0,0,1),3)
-                sums.append(sm)
-                # Logs
-                print(shift, sm)                
-                show("Image", gray2, 1, 1, [0,0])
-
-                if(maxS < sm):
-                    maxS = sm
-                    shiftM = shift
             QBlock.shift = shiftM
-            # if(QBlock.shift != 0):
-            sums = sorted(sums, reverse=True)
-            print("Aligned QBlock: ",QBlock.key, ", Dimensions:", QBlock.dims, "orig:", QBlock.orig,"Corrected Shift:", QBlock.shift, "Confidence: ", 100*(maxS - sums[1])/(maxS))
+            # sums = sorted(sums, reverse=True)
+            # print("Aligned QBlock: ",QBlock.key,"Corrected Shift:", QBlock.shift,", Dimensions:", QBlock.dims, "orig:", QBlock.orig,'\n')
 
             for Que in QBlock.Qs:
                 for pt in Que.pts:
                     # shifted
-                    QVals.append( cv2.mean( img[  pt.y:pt.y+h, pt.x+shiftM:pt.x+shiftM+w ] )[0])
+                    QVals.append( cv2.mean( img[  pt.y:pt.y+boxH, pt.x+shiftM:pt.x+shiftM+boxW ] )[0])
         
+
+        gray2=overlay.copy()
+        for QBlock in TEMPLATE.QBlocks:
+            n, s,d = QBlock.key, QBlock.orig, QBlock.dims
+            shift = QBlock.shift
+            cv2.rectangle(gray2,(s[0]+shift-THK,s[1]-THK),(s[0]+shift+d[0]+THK,s[1]+d[1]+THK),(10,10,10),3)
+            # cv2.rectangle(gray2,(s[0]+shift,s[1]),(s[0]+shift+d[0],s[1]+d[1]),(0,0,1),3)
+        show("Corrected Template Overlay", 255 -  gray2, 1, 1)# [gray2.shape[1],0])
+        
+        show("Initial template", initial,0,1, [0,0])
+
         # Sort the Q vals
         QVals= sorted(QVals)
 
@@ -621,18 +637,18 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
                     x,y=ptXY
 
                     # Supplimentary points
-                    # xminus,xplus= x-int(w/2),x+w-int(w/2) 
-                    # xminus2,xplus2= x+int(w/2),x+w+int(w/2) 
-                    # yminus,yplus= y-int(h/2.7),y+h-int(h/2.7) 
-                    # yminus2,yplus2= y+int(h/2.7),y+h+int(h/2.7) 
+                    # xminus,xplus= x-int(boxW/2),x+boxW-int(boxW/2) 
+                    # xminus2,xplus2= x+int(boxW/2),x+boxW+int(boxW/2) 
+                    # yminus,yplus= y-int(boxH/2.7),y+boxH-int(boxH/2.7) 
+                    # yminus2,yplus2= y+int(boxH/2.7),y+boxH+int(boxH/2.7) 
 
                     #  This Plus method is better than having bigger box as gray would also get marked otherwise. Bigger box is rather an invalid alternative.
                     check_rects = [ 
-                        [y,y+h,x,x+w], 
-                        # [yminus,yplus,x,x+w], 
-                        # [yminus2,yplus2,x,x+w], 
-                        # [y,y+h,xminus,xplus], 
-                        # [y,y+h,xminus2,xplus2], 
+                        [y,y+boxH,x,x+boxW], 
+                        # [yminus,yplus,x,x+boxW], 
+                        # [yminus2,yplus2,x,x+boxW], 
+                        # [y,y+boxH,xminus,xplus], 
+                        # [y,y+boxH,xminus2,xplus2], 
                     ]
                     
                     # This is NOT usual thresholding, rather call it boxed mean-thresholding
@@ -651,8 +667,8 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
                     #for hist
                     Qboxvals.append(boxval)
 
-                    # cv2.rectangle(retimg,(x,y),(x+w,y+h),clrs[int(detected)],bord)
-                    cv2.rectangle(retimg,(x,y),(x+w,y+h),grey,bord)
+                    # cv2.rectangle(retimg,(x,y),(x+boxW,y+boxH),clrs[int(detected)],bord)
+                    cv2.rectangle(retimg,(x,y),(x+boxW,y+boxH),grey,bord)
 
                     if (detected):
                         blackTHRs.append(boxval)
@@ -685,7 +701,7 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
                         cv2.putText(retimg,str(OMRresponse[key1][key2]),ptXY,cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE,(50,20,10),5)
                         
                         # if(np.random.randint(0,10)==0):
-                        #     cv2.putText(retimg,"["+str(int(boxval))+"]",(x-2*w,y+h),cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE/2,(10,10,10),3)
+                        #     cv2.putText(retimg,"["+str(int(boxval))+"]",(x-2*boxW,y+boxH),cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE/2,(10,10,10),3)
                                      
             #             except:
             #                 #No dict key for that point
@@ -695,7 +711,7 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
                     else:
                         whiteTHRs.append(boxval)                    
                         # if(np.random.randint(0,20)==0):
-                        #     cv2.putText(retimg,"["+str(int(boxval))+"]",(x-w//2,y+h//2),cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE/2,(10,10,10),3)
+                        #     cv2.putText(retimg,"["+str(int(boxval))+"]",(x-boxW//2,y+boxH//2),cv2.FONT_HERSHEY_SIMPLEX, TEXT_SIZE/2,(10,10,10),3)
                 
                 if(showimglvl>=1):
                     # For int types:
@@ -769,3 +785,47 @@ def readResponse(squad,image,name,save=None,thresholdRead=127.5,explain=True,bor
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
         print(exc_type, fname, exc_tb.tb_lineno)
 # In[9]:
+
+
+# Alignment Code dump
+
+# if(QBlock.shift != 0):
+# maxS, shiftM = 0, 0
+# sums = []
+# for shift in ALIGN_RANGE:
+#     # take QVals wise sum of means
+#     sm = 0
+#     gray2=morph.copy()
+#     for col in QBlock.cols:
+#         o,e = col
+#         # shifted
+#         o[0] += shift 
+#         e[0] += shift + THK
+#         window = morph[ o[1]:e[1] , o[0]:e[0] ]
+#         sm += cv2.mean(window)[0]
+#         cv2.rectangle(gray2,(o[0],o[1]),(e[0],e[1]),(0,0,1),3)
+#     sums.append(sm)
+#     # Logs
+#     print(shift, sm)                
+#     show("Image", gray2, 1, 1, [0,0])
+
+#     if(maxS < sm):
+#         maxS = sm
+#         shiftM = shift
+
+# centre=(d[0]/2, d[1]/2)
+# closestGap, shiftM = d[0], 0
+# equals = []
+# for shift in ALIGN_RANGE:
+#     window = morph[s[1]-THK:s[1]+THK+d[1],s[0]-THK+shift:s[0]+THK+shift+d[0]]
+#     show("window", window, 1, 0, [0,0])
+#     centroid = getCentroid(window) # quite slow
+#     #  Nope, unpredictable on bad data - Decide whether to move towards, and how fast
+#     print(QBlock.key, shift, centre[0], '->', round(centroid[0],2))
+#     if(closestGap >= abs(centroid[0] - centre[0])):
+#         closestGap = abs(centroid[0] - centre[0])
+#         if(int(closestGap)==0):
+#             equals.append(shift)
+#         closest = shift
+
+# shiftM = equals[(len(equals)-1)//2] if (closestGap==0) else closest            

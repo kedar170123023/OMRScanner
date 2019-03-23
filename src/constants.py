@@ -37,7 +37,7 @@ thresholdRead_R =  60
 # For new ways of determining threshold
 JUMP_DELTA=20
 # Templ alignment parameters
-ALIGN_RANGE  = range(-5,6,2) #
+ALIGN_RANGE  = range(-5,6,1) #
 # ALIGN_RANGE  = [-6,-4,-2,-1,0,1,2,4,6]
 
 # minimum threshold for template matching
