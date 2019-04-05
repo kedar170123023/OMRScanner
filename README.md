@@ -1,6 +1,8 @@
 # OMR-Scanner
 A full-fledged OMR checking software that can read and evaluate OMR sheets scanned at any angle and having any color. With support for a customizable marking scheme with section-wise marking, bonus questions, etc. 
 
+### Note: An upgrade is under progress, the updated Readme(How to run, etc) will be available by end of April '19. 
+
 ## How to run
 #### Install dependencies
 
