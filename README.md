@@ -1,7 +1,8 @@
 # OMR-Scanner
 A full-fledged OMR checking software that can read and evaluate OMR sheets scanned at any angle and having any color. With support for a customizable marking scheme with section-wise marking, bonus questions, etc. 
+Hits Since **8 Apr '19**: [![HitCount](http://hits.dwyl.io/udayraj123/OMRScanner.svg)](http://hits.dwyl.io/udayraj123/OMRScanner)
 
-### Note: An upgrade is under progress, the updated Readme(How to run, etc) will be available by end of April '19. 
+### Note: A major upgrade is under progress, the updated Readme(How to run, etc) will be available by end of April '19. 
 
 
 ## How to run
@@ -142,6 +143,3 @@ This work is actively in progress and many improvements are being done.
 
 #### User side
 Starts once the dev side is complete
-
-Hitcount(added on 8 Apr '19):
-[![HitCount](http://hits.dwyl.io/udayraj123/OMRScanner.svg)](http://hits.dwyl.io/udayraj123/OMRScanner)
